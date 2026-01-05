@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { useFund } from '@/context/FundContext';
 import { FundCard } from '@/components/FundCard';
-import { Plus } from 'lucide-react';
+import { Plus, LogOut } from 'lucide-react';
 import { Fund } from '@/types';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function Dashboard() {
-  const { funds, loans, addFund } = useFund();
+  const { funds, loans, addFund, loading } = useFund();
+  const { data: session } = useSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
@@ -15,9 +17,9 @@ export default function Dashboard() {
   const [newFundAmount, setNewFundAmount] = useState('');
   const [newFundRate, setNewFundRate] = useState('14');
 
-  const handleCreateFund = (e: React.FormEvent) => {
+  const handleCreateFund = async (e: React.FormEvent) => {
     e.preventDefault();
-    addFund({
+    await addFund({
       name: newFundName,
       totalRaised: Number(newFundAmount),
       costOfCapitalRate: Number(newFundRate)
@@ -27,20 +29,42 @@ export default function Dashboard() {
     setNewFundAmount('');
   };
 
+  if (loading) {
+    return (
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="text-center py-20">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Portfolio Overview</h1>
           <p className="text-gray-500">Manage your funds, capital deployment, and risk.</p>
+          {session?.user && (
+            <p className="text-sm text-gray-400 mt-1">Welcome, {session.user.name}</p>
+          )}
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Fund
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Fund
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">

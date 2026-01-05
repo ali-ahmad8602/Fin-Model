@@ -6,11 +6,13 @@ import { Fund, Loan, LoanStatus } from '@/types';
 interface FundContextType {
     funds: Fund[];
     loans: Loan[];
-    addFund: (fund: Omit<Fund, 'id'>) => void;
-    addLoan: (loan: Omit<Loan, 'id'>) => void;
-    updateLoanStatus: (loanId: string, status: LoanStatus, defaultedAmount?: number) => void;
+    loading: boolean;
+    addFund: (fund: Omit<Fund, 'id'>) => Promise<void>;
+    addLoan: (loan: Omit<Loan, 'id'>) => Promise<void>;
+    updateLoanStatus: (loanId: string, status: LoanStatus, defaultedAmount?: number) => Promise<void>;
     getFundLoans: (fundId: string) => Loan[];
-    deleteLoan: (loanId: string) => void;
+    deleteLoan: (loanId: string) => Promise<void>;
+    refreshData: () => Promise<void>;
 }
 
 const FundContext = createContext<FundContextType | undefined>(undefined);
@@ -18,45 +20,106 @@ const FundContext = createContext<FundContextType | undefined>(undefined);
 export const FundProvider = ({ children }: { children: ReactNode }) => {
     const [funds, setFunds] = useState<Fund[]>([]);
     const [loans, setLoans] = useState<Loan[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    // Load from local storage on mount
+    const refreshData = async () => {
+        try {
+            setLoading(true);
+            const [fundsRes, loansRes] = await Promise.all([
+                fetch('/api/funds'),
+                fetch('/api/loans')
+            ]);
+
+            if (fundsRes.ok) {
+                const fundsData = await fundsRes.json();
+                setFunds(fundsData.map((f: any) => ({ ...f, id: f._id.toString() })));
+            }
+
+            if (loansRes.ok) {
+                const loansData = await loansRes.json();
+                setLoans(loansData.map((l: any) => ({
+                    ...l,
+                    id: l._id.toString(),
+                    fundId: l.fundId.toString()
+                })));
+            }
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const storedFunds = localStorage.getItem('funds');
-        const storedLoans = localStorage.getItem('loans');
-        if (storedFunds) setFunds(JSON.parse(storedFunds));
-        if (storedLoans) setLoans(JSON.parse(storedLoans));
+        refreshData();
     }, []);
 
-    // Save to local storage on change
-    useEffect(() => {
-        localStorage.setItem('funds', JSON.stringify(funds));
-        localStorage.setItem('loans', JSON.stringify(loans));
-    }, [funds, loans]);
+    const addFund = async (fundData: Omit<Fund, 'id'>) => {
+        try {
+            const res = await fetch('/api/funds', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fundData),
+            });
 
-    const addFund = (fundData: Omit<Fund, 'id'>) => {
-        const newFund: Fund = { ...fundData, id: crypto.randomUUID() };
-        setFunds(prev => [...prev, newFund]);
+            if (res.ok) {
+                await refreshData();
+            }
+        } catch (error) {
+            console.error('Failed to create fund:', error);
+        }
     };
 
-    const addLoan = (loanData: Omit<Loan, 'id'>) => {
-        const newLoan: Loan = { ...loanData, id: crypto.randomUUID() };
-        setLoans(prev => [...prev, newLoan]);
+    const addLoan = async (loanData: Omit<Loan, 'id'>) => {
+        try {
+            const res = await fetch('/api/loans', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(loanData),
+            });
+
+            if (res.ok) {
+                await refreshData();
+            }
+        } catch (error) {
+            console.error('Failed to create loan:', error);
+        }
     };
 
-    const updateLoanStatus = (loanId: string, status: LoanStatus, defaultedAmount?: number) => {
-        setLoans(prev => prev.map(loan =>
-            loan.id === loanId ? { ...loan, status, defaultedAmount: defaultedAmount || 0 } : loan
-        ));
+    const updateLoanStatus = async (loanId: string, status: LoanStatus, defaultedAmount?: number) => {
+        try {
+            const res = await fetch(`/api/loans/${loanId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, defaultedAmount: defaultedAmount || 0 }),
+            });
+
+            if (res.ok) {
+                await refreshData();
+            }
+        } catch (error) {
+            console.error('Failed to update loan:', error);
+        }
     };
 
-    const deleteLoan = (loanId: string) => {
-        setLoans(prev => prev.filter(l => l.id !== loanId));
+    const deleteLoan = async (loanId: string) => {
+        try {
+            const res = await fetch(`/api/loans/${loanId}`, {
+                method: 'DELETE',
+            });
+
+            if (res.ok) {
+                await refreshData();
+            }
+        } catch (error) {
+            console.error('Failed to delete loan:', error);
+        }
     };
 
     const getFundLoans = (fundId: string) => loans.filter(l => l.fundId === fundId);
 
     return (
-        <FundContext.Provider value={{ funds, loans, addFund, addLoan, updateLoanStatus, getFundLoans, deleteLoan }}>
+        <FundContext.Provider value={{ funds, loans, loading, addFund, addLoan, updateLoanStatus, getFundLoans, deleteLoan, refreshData }}>
             {children}
         </FundContext.Provider>
     );
