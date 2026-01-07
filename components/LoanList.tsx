@@ -95,7 +95,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900 font-medium">{formatCurrency(loan.principal)}</div>
                                         {loan.defaultedAmount && loan.defaultedAmount > 0 ? (
-                                            <div className="text-xs text-red-600">-{formatCurrency(loan.defaultedAmount)} (NPL)</div>
+                                            <div className="text-xs text-red-600">-{formatCurrency(totalRepayable + (loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0))} (NPL)</div>
                                         ) : null}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">

@@ -31,8 +31,27 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     const availableCapital = fund.totalRaised - deployedCapital;
 
     const nplLoans = fundLoans.filter(l => l.status === 'DEFAULTED');
-    const nplVolume = nplLoans.reduce((sum, loan) => sum + loan.principal, 0);
-    const nplRatio = fund.totalRaised > 0 ? (nplVolume / fund.totalRaised) * 100 : 0;
+
+    // NPL Volume now = Total Repayable (Principal + Interest + Fee)
+    const nplVolume = nplLoans.reduce((sum, loan) => {
+        const days = loan.durationDays;
+        const interest = calculateInterest(loan.principal, loan.interestRate, days);
+        const fee = loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0;
+        return sum + loan.principal + interest + fee;
+    }, 0);
+
+    // Track Principal Loss separately for Net Yield consistency (Cash basis loss)
+    const nplPrincipalLoss = nplLoans.reduce((sum, loan) => sum + loan.principal, 0);
+
+    const nplRatio = fund.totalRaised > 0 ? (nplPrincipalLoss / fund.totalRaised) * 100 : 0; // Keeping Ratio on Principal basis or Volume? Usually Principal but volume asked. 
+    // User asked "NPL amount and NPl volume to be the total reapayble amount". 
+    // Usually Ratio follows Volume. calculating on Volume for now to match.
+    // Actually, std NPL ratio is usually Outstanding Balance / Total Loan Book. 
+    // Let's stick to Principal for Ratio if they didn't ask, OR if they want Volume to be X, Ratio usually displays Volume%.
+    // I'll keep ratio on Principal for now as 'Risk' is usually capital risk, unless specified. 
+    // Wait, if I show $120k NPL Volume on $100k Fund, Ratio 120%? Weird.
+    // Let's stick to Principal for Ratio to be safe, or just use the new Volume.
+    // "NPL amount and NPl volume" -> implies display metrics.
 
     // Global Cost Metrics (Annual Cost on Total Raised)
     const annualGlobalCost = fund.totalRaised * (fund.costOfCapitalRate / 100);
@@ -70,14 +89,15 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         // Add NPL Expense (The defaulted amount itself is a loss/expense)
         // Plus, we might consider the 'Lost Interest' as an opportunity cost, but for "Net Yield" (Cash basis), 
         // we simply don't get the income, and we lose the capital.
-        loanExpenses += defaultedAmount;
+        // loanExpenses += defaultedAmount; // REMOVED as per request to keep Expenses separate from NPL losses
 
         projectedIncome += interestIncome + processingFee;
         totalAllocatedExpenses += loanExpenses;
     });
 
     // Net Yield for the CARD (Deal Basis)
-    const netYield = projectedIncome - totalAllocatedExpenses;
+    // Net Yield = Income - Expenses - NPL Losses (Principal Only to remain unaffected)
+    const netYield = projectedIncome - totalAllocatedExpenses - nplPrincipalLoss;
 
     return {
         totalRaised: fund.totalRaised,
