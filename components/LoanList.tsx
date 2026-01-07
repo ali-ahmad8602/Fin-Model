@@ -163,15 +163,14 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                         <div className="pt-2 border-t border-gray-100 mt-2">
                                                             <div className="flex justify-between items-center bg-gray-50 p-2 rounded">
                                                                 <span className="text-gray-600 font-medium">Net Yield</span>
-                                                                <span className={`font-bold ${(totalInterest + (loan.processingFeeRate && !loan.defaultedAmount ? (loan.principal * (loan.processingFeeRate / 100)) : 0) - calculateVariableCosts(loan.principal, loan.variableCosts) - calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays) - (loan.defaultedAmount || 0)) >= 0
+                                                                <span className={`font-bold ${(totalInterest + (loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0) - calculateVariableCosts(loan.principal, loan.variableCosts) - calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays)) >= 0
                                                                     ? 'text-emerald-700' : 'text-red-700'
                                                                     }`}>
                                                                     {formatCurrency(
                                                                         totalInterest +
-                                                                        (loan.processingFeeRate && !loan.defaultedAmount ? (loan.principal * (loan.processingFeeRate / 100)) : 0) -
+                                                                        (loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0) -
                                                                         calculateVariableCosts(loan.principal, loan.variableCosts) -
-                                                                        calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays) -
-                                                                        (loan.defaultedAmount || 0)
+                                                                        calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays)
                                                                     )}
                                                                 </span>
                                                             </div>

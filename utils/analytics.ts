@@ -8,6 +8,7 @@ export interface FundMetrics {
     nplVolume: number;
     projectedIncome: number;
     totalExpenses: number; // Cost of Capital + Variable Costs
+    totalAllocatedCostOfCapital: number;
     netYield: number;
     nplRatio: number; // Percentage
     globalCost: {
@@ -66,6 +67,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     // Financials
     let projectedIncome = 0;
     let totalAllocatedExpenses = 0;
+    let totalAllocatedCostOfCapital = 0;
 
     fundLoans.forEach(loan => {
         const days = loan.durationDays;
@@ -93,6 +95,11 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
 
         projectedIncome += interestIncome + processingFee;
         totalAllocatedExpenses += loanExpenses;
+
+        // Only include in "Allocated Cost (Deployed)" metric if NOT defaulted
+        if (loan.status !== 'DEFAULTED') {
+            totalAllocatedCostOfCapital += allocatedCost;
+        }
     });
 
     // Net Yield for the CARD (Deal Basis)
@@ -106,6 +113,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         nplVolume,
         projectedIncome,
         totalExpenses: totalAllocatedExpenses,
+        totalAllocatedCostOfCapital, // New Variable
         netYield,
         nplRatio,
         globalCost: {

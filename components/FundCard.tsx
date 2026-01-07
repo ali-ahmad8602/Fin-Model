@@ -131,6 +131,10 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                             <p className="text-xs text-gray-500">Expenses</p>
                             <p className="text-sm font-medium text-red-500">{formatCurrency(metrics.totalExpenses)}</p>
                         </div>
+                        <div className="col-span-2">
+                            <p className="text-xs text-gray-500">Allocated Cost (Deployed)</p>
+                            <p className="text-sm font-medium text-gray-900">{formatCurrency(metrics.totalAllocatedCostOfCapital)}</p>
+                        </div>
                         <div className="col-span-2 pt-2 border-t border-gray-100 space-y-2">
                             <div className="flex justify-between items-center">
                                 <p className="text-xs text-gray-500 font-medium">Global Cost ({fund.costOfCapitalRate}%)</p>
