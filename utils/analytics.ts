@@ -61,7 +61,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         // 2. Calculate Projected Income on *Active* Principal only
         // If defaultedAmount == principal (Full Default), activePrincipal is 0, so Interest is 0.
         const interestIncome = calculateInterest(activePrincipal, loan.interestRate, days);
-        const processingFee = loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0;
+        const processingFee = (loan.processingFeeRate && loan.status !== 'DEFAULTED') ? (loan.principal * (loan.processingFeeRate / 100)) : 0;
 
         // 3. Expense Logic
         // Base Expenses: Allocated Cost + Variable Costs
