@@ -9,6 +9,7 @@ export interface Loan {
     borrowerName: string;
     principal: number;
     interestRate: number;
+    processingFeeRate?: number;
     startDate: string;
     durationDays: number;
     status: LoanStatus;

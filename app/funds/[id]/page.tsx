@@ -99,6 +99,7 @@ export default function FundDetailsPage() {
 
                 <LoanList
                     loans={filteredLoans}
+                    costOfCapitalRate={fund.costOfCapitalRate}
                     onStatusChange={updateLoanStatus}
                     onDelete={deleteLoan}
                 />

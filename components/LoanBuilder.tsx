@@ -17,6 +17,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
     const [borrowerName, setBorrowerName] = useState('');
     const [principal, setPrincipal] = useState(100000);
     const [interestRate, setInterestRate] = useState(18);
+    const [processingFeeRate, setProcessingFeeRate] = useState(2); // Default 2%
     const [durationDays, setDurationDays] = useState(90);
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [repaymentType, setRepaymentType] = useState<RepaymentType>('BULLET');
@@ -39,33 +40,51 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
     // Total Repayment Calculation
     const totalRepayment = scheduleItems.reduce((sum, item) => sum + item.amount, 0);
 
+    // Fee Calculation
+    const processingFeeAmount = principal * (processingFeeRate / 100);
+
+    // Expected Repayment (Terms Based)
+    const expectedInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+    const expectedTotalRepayment = principal + expectedInterest + processingFeeAmount;
+
     // Auto-Generate Schedule Effect
     useEffect(() => {
         if (!isCustomSchedule) {
-            const generated = generateRepaymentSchedule(principal, interestRate, startDate, durationDays, repaymentType);
-            setScheduleItems(generated);
+            // Updated generator function handling would go here, but for now we manually add fee
+            const rawSchedule = generateRepaymentSchedule(principal, interestRate, startDate, durationDays, repaymentType);
+
+            // Distribute Fee Evenly
+            const feePerInstallment = processingFeeAmount / rawSchedule.length;
+
+            const scheduleWithFee = rawSchedule.map(item => ({
+                ...item,
+                amount: item.amount + feePerInstallment,
+                // Note: Interest component conceptually includes the fee for simple tracking, 
+                // or we could track separate feeComponent. For MVP, we just increase amount.
+                // To balance logic: Interest = Amount - Principal. If Amount goes up, implied return goes up.
+            }));
+
+            setScheduleItems(scheduleWithFee);
         }
-    }, [principal, interestRate, startDate, durationDays, repaymentType, isCustomSchedule]);
+    }, [principal, interestRate, processingFeeRate, startDate, durationDays, repaymentType, isCustomSchedule, processingFeeAmount]);
 
     // Metrics Effect
     useEffect(() => {
         const allocatedCost = calculateAllocatedCostOfCapital(principal, fund.costOfCapitalRate, durationDays);
         const varCosts = calculateVariableCosts(principal, variableCosts);
         const total = allocatedCost + varCosts;
-        const beAmount = principal + total;
+        const beAmount = principal + total; // Break Even doesn't include profit margin (fee is profit)
 
-        // Interest Income based on inputs (Projected)
+        // Interest Income based on inputs (Projected) + Processing Fee
         const paramInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
-        const ny = paramInterest - total;
+        const totalRevenue = paramInterest + processingFeeAmount;
+
+        const ny = totalRevenue - total;
 
         setTotalCost(total);
         setBreakEven(beAmount);
         setNetYield(ny);
-    }, [principal, interestRate, durationDays, variableCosts, fund.costOfCapitalRate]);
-
-    // Expected Repayment (Terms Based)
-    const expectedInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
-    const expectedTotalRepayment = principal + expectedInterest;
+    }, [principal, interestRate, processingFeeAmount, durationDays, variableCosts, fund.costOfCapitalRate]);
 
     const addVariableCost = () => {
         setVariableCosts([...variableCosts, { id: crypto.randomUUID(), name: '', percentage: 0 }]);
@@ -108,8 +127,8 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
 
             return {
                 dueDate: dueDate.toISOString(),
-                amount: parseFloat(amountPerInstallment.toFixed(2)), // Simple Rounding, might need adjustment on last item
-                principal: 0, // Placeholder
+                amount: parseFloat(amountPerInstallment.toFixed(2)),
+                principal: 0,
                 interest: 0
             };
         });
@@ -132,8 +151,6 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validation
-        const totalPrincipal = scheduleItems.reduce((acc, item) => acc + item.principal, 0); // Note: Simple schedule doesn't track principal separate yet often in UI manually
         const totalAmount = scheduleItems.reduce((acc, item) => acc + item.amount, 0);
 
         // Strict Validation: Schedule must match Terms
@@ -147,6 +164,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
             borrowerName,
             principal,
             interestRate,
+            processingFeeRate,
             startDate,
             durationDays,
             status: 'ACTIVE',
@@ -208,6 +226,19 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Processing Fee (%)</label>
+                                <div className="relative">
+                                    <input
+                                        type="number" required min="0" step="0.1"
+                                        className="w-full px-3 py-2 border rounded-md text-sm"
+                                        value={processingFeeRate} onChange={e => setProcessingFeeRate(Number(e.target.value))}
+                                    />
+                                    <span className="absolute right-8 top-2 text-xs text-gray-400">
+                                        (${processingFeeAmount.toFixed(0)})
+                                    </span>
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Duration (Days)</label>
                                 <input
                                     type="number" required min="1"
@@ -215,14 +246,15 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                                     value={durationDays} onChange={e => setDurationDays(Number(e.target.value))}
                                 />
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
-                                <input
-                                    type="date" required
-                                    className="w-full px-3 py-2 border rounded-md text-sm"
-                                    value={startDate} onChange={e => setStartDate(e.target.value)}
-                                />
-                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+                            <input
+                                type="date" required
+                                className="w-full px-3 py-2 border rounded-md text-sm"
+                                value={startDate} onChange={e => setStartDate(e.target.value)}
+                            />
                         </div>
 
                     </div>
@@ -322,6 +354,10 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Fund Cost Overlay ({fund.costOfCapitalRate}%)</span>
                                 <span className="font-mono text-red-500">-${((principal * (fund.costOfCapitalRate / 100) * durationDays) / DAYS_IN_YEAR).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Processing Fee Income</span>
+                                <span className="font-mono text-emerald-600">+${processingFeeAmount.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Variable Costs</span>

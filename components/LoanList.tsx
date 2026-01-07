@@ -4,15 +4,16 @@ import React, { useState } from 'react';
 import { Loan, LoanStatus } from '@/types';
 import { formatCurrency } from '@/utils/analytics';
 import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2 } from 'lucide-react';
-import { calculateInterest, calculateVariableCosts } from '@/utils/finance';
+import { calculateInterest, calculateVariableCosts, calculateAllocatedCostOfCapital } from '@/utils/finance';
 
 interface LoanListProps {
     loans: Loan[];
+    costOfCapitalRate: number;
     onStatusChange: (id: string, status: LoanStatus, defaultedAmount?: number) => void;
     onDelete: (id: string) => void;
 }
 
-export const LoanList: React.FC<LoanListProps> = ({ loans, onStatusChange, onDelete }) => {
+export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
     const toggleExpand = (id: string) => {
@@ -137,6 +138,12 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, onStatusChange, onDel
                                                             <span className="">+ Interest Income</span>
                                                             <span className="font-medium">{formatCurrency(totalInterest)}</span>
                                                         </div>
+                                                        {loan.processingFeeRate && loan.processingFeeRate > 0 && (
+                                                            <div className="flex justify-between text-emerald-600">
+                                                                <span className="">+ Processing Fee ({loan.processingFeeRate}%)</span>
+                                                                <span className="font-medium">{formatCurrency(loan.principal * (loan.processingFeeRate / 100))}</span>
+                                                            </div>
+                                                        )}
                                                         <div className="flex flex-col gap-1 text-red-500 text-xs">
                                                             {loan.variableCosts.map(cost => (
                                                                 <div key={cost.id} className="flex justify-between">
@@ -144,10 +151,29 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, onStatusChange, onDel
                                                                     <span>{formatCurrency(loan.principal * (cost.percentage / 100))}</span>
                                                                 </div>
                                                             ))}
+                                                            <div className="flex justify-between">
+                                                                <span>- Cost of Capital ({costOfCapitalRate}%)</span>
+                                                                <span className="text-red-500">{formatCurrency(calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays))}</span>
+                                                            </div>
                                                         </div>
                                                         <div className="pt-2 border-t border-gray-100 flex justify-between font-bold">
                                                             <span>Total Repayable</span>
-                                                            <span>{formatCurrency(totalRepayable)}</span>
+                                                            <span>{formatCurrency(totalRepayable + (loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0))}</span>
+                                                        </div>
+                                                        <div className="pt-2 border-t border-gray-100 mt-2">
+                                                            <div className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                                                                <span className="text-gray-600 font-medium">Net Yield</span>
+                                                                <span className={`font-bold ${(totalInterest + (loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0) - calculateVariableCosts(loan.principal, loan.variableCosts) - calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays)) >= 0
+                                                                    ? 'text-emerald-700' : 'text-red-700'
+                                                                    }`}>
+                                                                    {formatCurrency(
+                                                                        totalInterest +
+                                                                        (loan.processingFeeRate ? (loan.principal * (loan.processingFeeRate / 100)) : 0) -
+                                                                        calculateVariableCosts(loan.principal, loan.variableCosts) -
+                                                                        calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays)
+                                                                    )}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>

@@ -22,6 +22,7 @@ export interface Loan {
     borrowerName: string;
     principal: number;
     interestRate: number; // % PA
+    processingFeeRate?: number; // % of Principal
     startDate: string; // ISO Date
     durationDays: number; // Tenure in days
     status: LoanStatus;
