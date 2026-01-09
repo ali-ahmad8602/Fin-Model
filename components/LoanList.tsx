@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Loan, LoanStatus } from '@/types';
 import { formatCurrency } from '@/utils/analytics';
-import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2 } from 'lucide-react';
+import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2, ArrowUpDown } from 'lucide-react';
 import { calculateInterest, calculateVariableCosts, calculateAllocatedCostOfCapital } from '@/utils/finance';
 import { calculateXIRR } from '@/utils/xirr';
 import { InfoIcon } from '@/components/ui/Tooltip';
+
+type SortField = 'date' | 'principal' | 'borrower' | 'status' | 'interestRate';
+type SortOrder = 'asc' | 'desc';
 
 interface LoanListProps {
     loans: Loan[];
@@ -17,6 +20,10 @@ interface LoanListProps {
 
 export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+    const [sortField, setSortField] = useState<SortField>('date');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc'); // Default: newest first
+    const [currentPage, setCurrentPage] = useState(0);
+    const loansPerPage = 10;
 
     const toggleExpand = (id: string) => {
         const newSet = new Set(expandedIds);
@@ -48,6 +55,56 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
         }
     };
 
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            // Toggle order if same field
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            // New field, default to desc for date/principal, asc for text
+            setSortField(field);
+            setSortOrder(field === 'date' || field === 'principal' || field === 'interestRate' ? 'desc' : 'asc');
+        }
+    };
+
+    // Sorted loans using useMemo for performance
+    const sortedLoans = useMemo(() => {
+        const sorted = [...loans].sort((a, b) => {
+            let comparison = 0;
+
+            switch (sortField) {
+                case 'date':
+                    comparison = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+                    break;
+                case 'principal':
+                    comparison = a.principal - b.principal;
+                    break;
+                case 'borrower':
+                    comparison = a.borrowerName.localeCompare(b.borrowerName);
+                    break;
+                case 'status':
+                    const statusOrder = { 'ACTIVE': 1, 'CLOSED': 2, 'DEFAULTED': 3 };
+                    comparison = statusOrder[a.status] - statusOrder[b.status];
+                    break;
+                case 'interestRate':
+                    comparison = a.interestRate - b.interestRate;
+                    break;
+            }
+
+            return sortOrder === 'asc' ? comparison : -comparison;
+        });
+
+        return sorted;
+    }, [loans, sortField, sortOrder]);
+
+    // Paginated loans
+    const totalLoans = sortedLoans.length;
+    const paginatedLoans = sortedLoans.slice(currentPage * loansPerPage, (currentPage + 1) * loansPerPage);
+
+    // Reset to first page when sort changes
+    useMemo(() => {
+        setCurrentPage(0);
+    }, [sortField, sortOrder]);
+
     if (loans.length === 0) {
         return (
             <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-200">
@@ -56,21 +113,102 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
         );
     }
 
+    const SortIcon = ({ field }: { field: SortField }) => {
+        if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+        return sortOrder === 'asc' ?
+            <ChevronUp className="w-3 h-3" /> :
+            <ChevronDown className="w-3 h-3" />;
+    };
+
     return (
-        <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                    <tr>
-                        <th className="w-8"></th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Borrower</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Principal</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Terms</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {loans.map((loan) => {
+        <div>
+            {/* Sort Controls */}
+            <div className="mb-4 flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <span className="text-sm font-medium text-gray-700">Sort by:</span>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => handleSort('date')}
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                            sortField === 'date'
+                                ? 'bg-indigo-100 text-indigo-700 font-medium'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                        } border border-gray-300`}
+                    >
+                        Date {sortField === 'date' && (sortOrder === 'desc' ? '↓' : '↑')}
+                    </button>
+                    <button
+                        onClick={() => handleSort('principal')}
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                            sortField === 'principal'
+                                ? 'bg-indigo-100 text-indigo-700 font-medium'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                        } border border-gray-300`}
+                    >
+                        Principal {sortField === 'principal' && (sortOrder === 'desc' ? '↓' : '↑')}
+                    </button>
+                    <button
+                        onClick={() => handleSort('borrower')}
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                            sortField === 'borrower'
+                                ? 'bg-indigo-100 text-indigo-700 font-medium'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                        } border border-gray-300`}
+                    >
+                        Borrower {sortField === 'borrower' && (sortOrder === 'desc' ? '↓' : '↑')}
+                    </button>
+                    <button
+                        onClick={() => handleSort('interestRate')}
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                            sortField === 'interestRate'
+                                ? 'bg-indigo-100 text-indigo-700 font-medium'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                        } border border-gray-300`}
+                    >
+                        Interest Rate {sortField === 'interestRate' && (sortOrder === 'desc' ? '↓' : '↑')}
+                    </button>
+                    <button
+                        onClick={() => handleSort('status')}
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                            sortField === 'status'
+                                ? 'bg-indigo-100 text-indigo-700 font-medium'
+                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                        } border border-gray-300`}
+                    >
+                        Status {sortField === 'status' && (sortOrder === 'desc' ? '↓' : '↑')}
+                    </button>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="w-8"></th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button onClick={() => handleSort('borrower')} className="flex items-center gap-1 hover:text-gray-700">
+                                    Borrower <SortIcon field="borrower" />
+                                </button>
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button onClick={() => handleSort('principal')} className="flex items-center gap-1 hover:text-gray-700">
+                                    Principal <SortIcon field="principal" />
+                                </button>
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button onClick={() => handleSort('interestRate')} className="flex items-center gap-1 hover:text-gray-700">
+                                    Terms <SortIcon field="interestRate" />
+                                </button>
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button onClick={() => handleSort('status')} className="flex items-center gap-1 hover:text-gray-700">
+                                    Status <SortIcon field="status" />
+                                </button>
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedLoans.map((loan) => {
                         const isExpanded = expandedIds.has(loan.id);
                         const totalInterest = calculateInterest(loan.principal, loan.interestRate, loan.durationDays);
                         const totalRepayable = loan.principal + totalInterest;
@@ -110,15 +248,20 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <select
+                                            key={`${loan.id}-${loan.status}`}
                                             value={loan.status}
-                                            onChange={(e) => handleAction(loan, e.target.value)}
+                                            onChange={(e) => {
+                                                handleAction(loan, e.target.value);
+                                                // Reset dropdown immediately after action
+                                                e.target.value = loan.status;
+                                            }}
                                             className="text-xs border-gray-300 rounded focus:ring-black focus:border-black w-28"
                                         >
-                                            <option value="ACTIVE">Active</option>
-                                            <option value="CLOSED">Closed</option>
-                                            <option value="DEFAULTED_CONFIRM">Mark NPL</option>
-                                            <option value="DEFAULTED" disabled hidden>Defaulted</option>
-                                            <option value="DELETE" className="text-red-600 font-bold">Delete Loan</option>
+                                            <option value={loan.status}>{loan.status === 'ACTIVE' ? 'Active' : loan.status === 'CLOSED' ? 'Closed' : 'Defaulted'}</option>
+                                            {loan.status !== 'ACTIVE' && <option value="ACTIVE">Set Active</option>}
+                                            {loan.status !== 'CLOSED' && <option value="CLOSED">Set Closed</option>}
+                                            {loan.status !== 'DEFAULTED' && <option value="DEFAULTED_CONFIRM">Mark NPL</option>}
+                                            <option value="DELETE" className="text-red-600">Delete Loan</option>
                                         </select>
                                     </td>
                                 </tr>
@@ -248,6 +391,35 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                     })}
                 </tbody>
             </table>
+        </div>
+
+        {/* Pagination */}
+        {totalLoans > loansPerPage && (
+            <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                    Showing {currentPage * loansPerPage + 1}-{Math.min((currentPage + 1) * loansPerPage, totalLoans)} of {totalLoans} loans
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                        disabled={currentPage === 0}
+                        className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Previous
+                    </button>
+                    <span className="px-4 py-2 text-sm text-gray-700">
+                        Page {currentPage + 1} of {Math.ceil(totalLoans / loansPerPage)}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(prev => prev + 1)}
+                        disabled={(currentPage + 1) * loansPerPage >= totalLoans}
+                        className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        )}
         </div>
     );
 };

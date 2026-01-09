@@ -74,12 +74,21 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                     <h3 className="text-xl font-bold text-gray-900">{fund.name}</h3>
                     <p className="text-sm text-gray-500">Cost of Capital: <span className="font-medium text-amber-600">{fund.costOfCapitalRate}% PA</span></p>
                 </div>
-                <Link
-                    href={`/funds/${fund.id}`}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                >
-                    View Details <ArrowUpRight className="w-4 h-4" />
-                </Link>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowRaiseModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium text-sm"
+                    >
+                        <TrendingUp className="w-4 h-4" />
+                        Raise Capital
+                    </button>
+                    <Link
+                        href={`/funds/${fund.id}`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                        View Details <ArrowUpRight className="w-4 h-4" />
+                    </Link>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x border-gray-100">
@@ -214,17 +223,6 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* Raise Capital Button */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                <button
-                    onClick={() => setShowRaiseModal(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                >
-                    <TrendingUp className="w-4 h-4" />
-                    Raise Additional Capital
-                </button>
             </div>
 
             {/* Raise Capital Modal */}

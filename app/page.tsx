@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [selectedManager, setSelectedManager] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'overview' | 'managers'>('overview');
+  const [fundsPage, setFundsPage] = useState(0);
+  const fundsPerPage = 5;
 
   // Form State
   const [newFundName, setNewFundName] = useState('');
@@ -133,9 +135,16 @@ export default function Dashboard() {
 
   const isCFO = session?.user?.role === 'cfo';
 
-  const displayedFunds = isCFO && selectedManager
+  const filteredFunds = isCFO && selectedManager
     ? funds.filter(f => f.userId.toString() === selectedManager)
     : funds;
+
+  const totalFunds = filteredFunds.length;
+  const displayedFunds = filteredFunds.slice(fundsPage * fundsPerPage, (fundsPage + 1) * fundsPerPage);
+
+  useEffect(() => {
+    setFundsPage(0); // Reset to first page when filter changes
+  }, [selectedManager]);
 
   const getManagerName = (userId: string) => {
     const manager = managers.find(m => m._id === userId);
@@ -292,15 +301,43 @@ export default function Dashboard() {
               )}
             </div>
           ) : (
-            displayedFunds.map(fund => (
-              <div key={fund.id}>
-                {isCFO && <div className="text-xs text-gray-400 mb-1">Managed by: {getManagerName(fund.userId.toString())}</div>}
-                <FundCard
-                  fund={fund}
-                  loans={loans.filter(l => l.fundId === fund.id)}
-                />
-              </div>
-            ))
+            <>
+              {displayedFunds.map(fund => (
+                <div key={fund.id}>
+                  {isCFO && <div className="text-xs text-gray-400 mb-1">Managed by: {getManagerName(fund.userId.toString())}</div>}
+                  <FundCard
+                    fund={fund}
+                    loans={loans.filter(l => l.fundId === fund.id)}
+                  />
+                </div>
+              ))}
+              {totalFunds > fundsPerPage && (
+                <div className="mt-6 p-4 bg-white rounded-lg border border-gray-200 flex items-center justify-between">
+                  <div className="text-sm text-gray-500">
+                    Showing {fundsPage * fundsPerPage + 1}-{Math.min((fundsPage + 1) * fundsPerPage, totalFunds)} of {totalFunds} funds
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setFundsPage(prev => Math.max(0, prev - 1))}
+                      disabled={fundsPage === 0}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-4 py-2 text-sm text-gray-700">
+                      Page {fundsPage + 1} of {Math.ceil(totalFunds / fundsPerPage)}
+                    </span>
+                    <button
+                      onClick={() => setFundsPage(prev => prev + 1)}
+                      disabled={(fundsPage + 1) * fundsPerPage >= totalFunds}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

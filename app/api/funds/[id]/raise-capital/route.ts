@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getFundById } from '@/lib/models/Fund';
+import { getFundById, getFundOwnerInfo } from '@/lib/models/Fund';
 import { getDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { logActivity, ActionTypes, getUserInfoForLog } from '@/lib/activityLogger';
 
 export async function PATCH(
     request: NextRequest,
@@ -24,8 +25,8 @@ export async function PATCH(
             );
         }
 
-        // Get existing fund
-        const fund = await getFundById(id, session.user.id);
+        // Get existing fund (with CFO override support)
+        const fund = await getFundById(id, session.user.id, session.user.role);
         if (!fund) {
             return NextResponse.json({ error: 'Fund not found' }, { status: 404 });
         }
@@ -43,8 +44,16 @@ export async function PATCH(
         const db = await getDatabase();
         const funds = db.collection('funds');
 
+        // CFO can update any fund
+        let filter;
+        if (session.user.role === 'cfo') {
+            filter = { _id: new ObjectId(id) };
+        } else {
+            filter = { _id: new ObjectId(id), userId: new ObjectId(session.user.id) };
+        }
+
         await funds.updateOne(
-            { _id: new ObjectId(id), userId: new ObjectId(session.user.id) },
+            filter,
             {
                 $set: {
                     totalRaised: totalCapital,
@@ -52,6 +61,32 @@ export async function PATCH(
                 },
             }
         );
+
+        // Log the capital raise
+        const fundInfo = await getFundOwnerInfo(id);
+        const userInfo = getUserInfoForLog(session);
+        const isCFOOverride = session.user.role === 'cfo' && fundInfo && fundInfo.userId !== session.user.id;
+
+        await logActivity({
+            ...userInfo,
+            actionType: isCFOOverride ? ActionTypes.CFO_OVERRIDE_FUND : ActionTypes.CAPITAL_RAISE,
+            actionDescription: isCFOOverride
+                ? `CFO raised capital for ${fund.name}: ${amount.toLocaleString()} at ${costOfCapitalRate}%`
+                : `Raised capital: ${amount.toLocaleString()} at ${costOfCapitalRate}%`,
+            entityType: 'CAPITAL_RAISE',
+            entityId: id,
+            entityName: fund.name,
+            fundId: id,
+            fundName: fund.name,
+            metadata: {
+                amount,
+                costOfCapitalRate,
+                previousTotal: existingCapital,
+                newTotal: totalCapital,
+                previousRate: existingRate,
+                newRate: wacc
+            }
+        });
 
         return NextResponse.json({
             message: 'Capital raised successfully',

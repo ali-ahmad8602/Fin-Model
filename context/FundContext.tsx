@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Fund, Loan, LoanStatus } from '@/types';
+import { useSession } from 'next-auth/react';
 
 interface FundContextType {
     funds: Fund[];
@@ -21,8 +22,15 @@ export const FundProvider = ({ children }: { children: ReactNode }) => {
     const [funds, setFunds] = useState<Fund[]>([]);
     const [loans, setLoans] = useState<Loan[]>([]);
     const [loading, setLoading] = useState(true);
+    const { data: session, status } = useSession();
 
     const refreshData = async () => {
+        // Don't fetch if session is not ready or user is not authenticated
+        if (status === 'loading' || !session?.user) {
+            setLoading(false);
+            return;
+        }
+
         try {
             setLoading(true);
             const [fundsRes, loansRes] = await Promise.all([
@@ -51,8 +59,13 @@ export const FundProvider = ({ children }: { children: ReactNode }) => {
     };
 
     useEffect(() => {
-        refreshData();
-    }, []);
+        // Only fetch data when session is authenticated
+        if (status === 'authenticated') {
+            refreshData();
+        } else if (status === 'unauthenticated') {
+            setLoading(false);
+        }
+    }, [status, session]);
 
     const addFund = async (fundData: Omit<Fund, 'id' | 'userId'>) => {
         try {

@@ -36,25 +36,58 @@ export async function getAllFunds(): Promise<Fund[]> {
     return funds.find({}).toArray();
 }
 
-export async function getFundById(fundId: string, userId: string): Promise<Fund | null> {
+export async function getFundById(fundId: string, userId: string, userRole?: string): Promise<Fund | null> {
     const db = await getDatabase();
     const funds = db.collection<Fund>('funds');
+
+    // CFO can access any fund
+    if (userRole === 'cfo') {
+        return funds.findOne({ _id: new ObjectId(fundId) });
+    }
+
+    // Fund managers can only access their own funds
     return funds.findOne({ _id: new ObjectId(fundId), userId: new ObjectId(userId) });
 }
 
-export async function updateFund(fundId: string, userId: string, updates: Partial<Omit<Fund, '_id' | 'userId' | 'createdAt'>>): Promise<boolean> {
+export async function updateFund(fundId: string, userId: string, updates: Partial<Omit<Fund, '_id' | 'userId' | 'createdAt'>>, userRole?: string): Promise<boolean> {
     const db = await getDatabase();
     const funds = db.collection<Fund>('funds');
-    const result = await funds.updateOne(
-        { _id: new ObjectId(fundId), userId: new ObjectId(userId) },
-        { $set: updates }
-    );
+
+    let filter;
+    if (userRole === 'cfo') {
+        filter = { _id: new ObjectId(fundId) };
+    } else {
+        filter = { _id: new ObjectId(fundId), userId: new ObjectId(userId) };
+    }
+
+    const result = await funds.updateOne(filter, { $set: updates });
     return result.modifiedCount > 0;
 }
 
-export async function deleteFund(fundId: string, userId: string): Promise<boolean> {
+export async function deleteFund(fundId: string, userId: string, userRole?: string): Promise<boolean> {
     const db = await getDatabase();
     const funds = db.collection<Fund>('funds');
-    const result = await funds.deleteOne({ _id: new ObjectId(fundId), userId: new ObjectId(userId) });
+
+    let filter;
+    if (userRole === 'cfo') {
+        filter = { _id: new ObjectId(fundId) };
+    } else {
+        filter = { _id: new ObjectId(fundId), userId: new ObjectId(userId) };
+    }
+
+    const result = await funds.deleteOne(filter);
     return result.deletedCount > 0;
+}
+
+export async function getFundOwnerInfo(fundId: string): Promise<{ userId: string; fundName: string } | null> {
+    const db = await getDatabase();
+    const funds = db.collection<Fund>('funds');
+    const fund = await funds.findOne({ _id: new ObjectId(fundId) });
+
+    if (!fund) return null;
+
+    return {
+        userId: fund.userId.toString(),
+        fundName: fund.name
+    };
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getFundById, updateFund, deleteFund } from '@/lib/models/Fund';
+import { getFundById, updateFund, deleteFund, getFundOwnerInfo } from '@/lib/models/Fund';
+import { logActivity, ActionTypes, getUserInfoForLog } from '@/lib/activityLogger';
 
 export async function GET(
     request: NextRequest,
@@ -13,9 +14,25 @@ export async function GET(
         }
 
         const { id } = await params;
-        const fund = await getFundById(id, session.user.id);
+        const fund = await getFundById(id, session.user.id, session.user.role);
+
         if (!fund) {
             return NextResponse.json({ error: 'Fund not found' }, { status: 404 });
+        }
+
+        // Log CFO access to other manager's funds
+        if (session.user.role === 'cfo' && fund.userId.toString() !== session.user.id) {
+            const userInfo = getUserInfoForLog(session);
+            await logActivity({
+                ...userInfo,
+                actionType: ActionTypes.CFO_OVERRIDE_FUND,
+                actionDescription: `CFO accessed fund: ${fund.name}`,
+                entityType: 'FUND',
+                entityId: id,
+                entityName: fund.name,
+                fundId: id,
+                fundName: fund.name,
+            });
         }
 
         return NextResponse.json(fund);
@@ -36,11 +53,32 @@ export async function PUT(
 
         const { id } = await params;
         const body = await request.json();
-        const updated = await updateFund(id, session.user.id, body);
+
+        // Get fund info before update for logging
+        const fundInfo = await getFundOwnerInfo(id);
+        const updated = await updateFund(id, session.user.id, body, session.user.role);
 
         if (!updated) {
             return NextResponse.json({ error: 'Fund not found' }, { status: 404 });
         }
+
+        // Log the update
+        const userInfo = getUserInfoForLog(session);
+        const isCFOOverride = session.user.role === 'cfo' && fundInfo && fundInfo.userId !== session.user.id;
+
+        await logActivity({
+            ...userInfo,
+            actionType: isCFOOverride ? ActionTypes.CFO_OVERRIDE_FUND : ActionTypes.FUND_UPDATE,
+            actionDescription: isCFOOverride
+                ? `CFO updated fund: ${fundInfo?.fundName}`
+                : `Updated fund: ${fundInfo?.fundName}`,
+            entityType: 'FUND',
+            entityId: id,
+            entityName: fundInfo?.fundName,
+            fundId: id,
+            fundName: fundInfo?.fundName,
+            metadata: { updates: body },
+        });
 
         return NextResponse.json({ message: 'Fund updated successfully' });
     } catch (error) {
@@ -59,11 +97,31 @@ export async function DELETE(
         }
 
         const { id } = await params;
-        const deleted = await deleteFund(id, session.user.id);
+
+        // Get fund info before deletion for logging
+        const fundInfo = await getFundOwnerInfo(id);
+        const deleted = await deleteFund(id, session.user.id, session.user.role);
 
         if (!deleted) {
             return NextResponse.json({ error: 'Fund not found' }, { status: 404 });
         }
+
+        // Log the deletion
+        const userInfo = getUserInfoForLog(session);
+        const isCFOOverride = session.user.role === 'cfo' && fundInfo && fundInfo.userId !== session.user.id;
+
+        await logActivity({
+            ...userInfo,
+            actionType: isCFOOverride ? ActionTypes.CFO_OVERRIDE_FUND : ActionTypes.FUND_DELETE,
+            actionDescription: isCFOOverride
+                ? `CFO deleted fund: ${fundInfo?.fundName}`
+                : `Deleted fund: ${fundInfo?.fundName}`,
+            entityType: 'FUND',
+            entityId: id,
+            entityName: fundInfo?.fundName,
+            fundId: id,
+            fundName: fundInfo?.fundName,
+        });
 
         return NextResponse.json({ message: 'Fund deleted successfully' });
     } catch (error) {
