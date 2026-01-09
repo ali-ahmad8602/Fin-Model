@@ -10,6 +10,8 @@ export interface FundMetrics {
     projectedIncome: number;
     totalExpenses: number; // Cost of Capital + Variable Costs
     totalAllocatedCostOfCapital: number;
+    totalUpfrontCostsDeployed: number; // New Metric
+    nav: number; // New Metric
     netYield: number;
     aum: number;
     portfolioIRR: number; // Percentage - Realized IRR (actual outcomes)
@@ -33,7 +35,13 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
         .reduce((sum, loan) => sum + loan.principal, 0);
 
-    const availableCapital = fund.totalRaised - deployedCapital;
+    // Calculate upfront variable costs for ACTIVE and DEFAULTED loans
+    const totalUpfrontVariableCosts = fundLoans
+        .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
+        .reduce((sum, loan) => sum + calculateVariableCosts(loan.principal, loan.variableCosts), 0);
+
+    // Update Available Capital: TotalRaised - DeployedPrincipal - UpfrontVariableCosts
+    const availableCapital = fund.totalRaised - deployedCapital - totalUpfrontVariableCosts;
 
     const nplLoans = fundLoans.filter(l => l.status === 'DEFAULTED');
 
@@ -164,7 +172,9 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         nplVolume,
         projectedIncome,
         totalExpenses: totalAllocatedExpenses,
-        totalAllocatedCostOfCapital, // New Variable
+        totalAllocatedCostOfCapital,
+        totalUpfrontCostsDeployed: totalUpfrontVariableCosts,
+        nav: fund.totalRaised + totalAllocatedCostOfCapital - nplPrincipalLoss,
         netYield,
         aum: fund.totalRaised + totalAllocatedCostOfCapital + netYield, // User Formula: Raised + Deployed Cost + Net Yield
         nplRatio,

@@ -1,5 +1,5 @@
 import { Fund, Loan } from '@/types';
-import { calculateInterest } from './finance';
+import { calculateAllocatedCostOfCapital, calculateVariableCosts, calculateInterest } from './finance';
 
 export interface CashFlowEvent {
     date: Date;
@@ -10,6 +10,9 @@ export interface CashFlowEvent {
     installmentNumber?: number;
     totalInstallments?: number;
     description: string;
+    principalPortion: number;
+    variableCostRecovery: number;
+    cocRecovery: number;
 }
 
 export interface CashFlowProjection {
@@ -31,7 +34,7 @@ export interface CashFlowSummary {
 /**
  * Extract all future repayment events from active loans
  */
-export function getAllRepaymentEvents(loans: Loan[]): CashFlowEvent[] {
+export function getAllRepaymentEvents(loans: Loan[], fund: Fund): CashFlowEvent[] {
     const events: CashFlowEvent[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -50,6 +53,17 @@ export function getAllRepaymentEvents(loans: Loan[]): CashFlowEvent[] {
 
                 // Only include future repayments
                 if (dueDate >= today) {
+                    const principalPortion = inst.principalComponent || (loan.principal / loan.installments.length); // Fallback if not stored
+
+                    // Proportional recovery
+                    const portionRatio = principalPortion / loan.principal;
+                    const totalVarCost = calculateVariableCosts(loan.principal, loan.variableCosts);
+                    const varRecovery = totalVarCost * portionRatio;
+
+                    // CoC for this period (approximate based on interest fraction or time)
+                    const totalAllocatedCoC = calculateAllocatedCostOfCapital(loan.principal, fund.costOfCapitalRate, loan.durationDays);
+                    const cocRecovery = totalAllocatedCoC * portionRatio;
+
                     events.push({
                         date: dueDate,
                         amount: inst.amount,
@@ -58,7 +72,10 @@ export function getAllRepaymentEvents(loans: Loan[]): CashFlowEvent[] {
                         borrowerName: loan.borrowerName,
                         installmentNumber: idx + 1,
                         totalInstallments: loan.installments.length,
-                        description: `${loan.borrowerName} - Installment ${idx + 1}/${loan.installments.length}`
+                        description: `${loan.borrowerName} - Installment ${idx + 1}/${loan.installments.length}`,
+                        principalPortion: principalPortion,
+                        variableCostRecovery: varRecovery,
+                        cocRecovery: cocRecovery
                     });
                 }
             });
@@ -72,13 +89,19 @@ export function getAllRepaymentEvents(loans: Loan[]): CashFlowEvent[] {
                 const totalInterest = calculateInterest(loan.principal, loan.interestRate, loan.durationDays);
                 const totalRepayment = loan.principal + totalInterest;
 
+                const totalVarCost = calculateVariableCosts(loan.principal, loan.variableCosts);
+                const totalAllocatedCoC = calculateAllocatedCostOfCapital(loan.principal, fund.costOfCapitalRate, loan.durationDays);
+
                 events.push({
                     date: maturityDate,
                     amount: totalRepayment,
                     type: 'REPAYMENT',
                     loanId: loan.id,
                     borrowerName: loan.borrowerName,
-                    description: `${loan.borrowerName} - Bullet Repayment`
+                    description: `${loan.borrowerName} - Bullet Repayment`,
+                    principalPortion: loan.principal,
+                    variableCostRecovery: totalVarCost,
+                    cocRecovery: totalAllocatedCoC
                 });
             }
         }
@@ -95,14 +118,19 @@ export function calculateCashFlowForecast(
     loans: Loan[],
     months: number = 12
 ): { projections: CashFlowProjection[], summary: CashFlowSummary } {
-    const events = getAllRepaymentEvents(loans);
+    const events = getAllRepaymentEvents(loans, fund);
 
     // Calculate current available capital
     const deployedCapital = loans
         .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
         .reduce((sum, l) => sum + l.principal, 0);
 
-    let runningAvailable = fund.totalRaised - deployedCapital;
+    const activeTotalVarCosts = loans
+        .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
+        .reduce((sum, l) => sum + calculateVariableCosts(l.principal, l.variableCosts), 0);
+
+    // Initial Available: Total - Deployed - VarCosts
+    let runningAvailable = fund.totalRaised - deployedCapital - activeTotalVarCosts;
     const initialAvailable = runningAvailable;
 
     // Group events by date
@@ -131,13 +159,19 @@ export function calculateCashFlowForecast(
     // Add projections for each repayment date
     uniqueDates.forEach(dateKey => {
         const dayEvents = eventsByDate.get(dateKey) || [];
-        const repayments = dayEvents.reduce((sum, e) => sum + e.amount, 0);
+        // Repayments in terms of Cash Inflow
+        const cashRepayments = dayEvents.reduce((sum, e) => sum + e.amount, 0);
 
-        runningAvailable += repayments;
+        // Available Capital Replenishment: Principal + VarCost + CoC
+        const availableReplenishment = dayEvents.reduce((sum, e) => {
+            return sum + e.principalPortion + e.variableCostRecovery + e.cocRecovery;
+        }, 0);
+
+        runningAvailable += availableReplenishment;
 
         projections.push({
             date: dateKey,
-            expectedRepayments: repayments,
+            expectedRepayments: cashRepayments,
             cumulativeAvailable: runningAvailable,
             events: dayEvents
         });

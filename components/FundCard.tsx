@@ -100,26 +100,42 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                     </div>
 
                     <div>
-                        <p className="text-sm text-gray-500">Raised</p>
+                        <div className="flex items-center gap-1">
+                            <p className="text-sm text-gray-500">Raised</p>
+                            <InfoIcon content="Total capital raised from investors for this fund." />
+                        </div>
                         <p className="text-lg font-semibold text-gray-900">{formatCurrency(metrics.totalRaised)}</p>
                     </div>
 
                     <div className="pt-2 border-t border-gray-100">
                         <div className="flex items-center gap-1">
-                            <p className="text-sm text-gray-500">Assets Under Management</p>
-                            <InfoIcon content={`The total value of the fund including capital, costs, and projected profits.\n\nFormula: Total Raised + Allocated Cost (Deployed) + Net Yield\n\nThis represents the full economic value of your fund's operations.`} />
+                            <p className="text-sm text-gray-500">Net Asset Value (NAV)</p>
+                            <InfoIcon content={`The true value of the fund's equity.\n\nFormula: Total Raised + Earned Cost of Capital - NPL Principal\n\nRepresents the book value to investors.`} />
                         </div>
-                        <p className="text-lg font-bold text-indigo-700">{formatCurrency(metrics.aum)}</p>
+                        <p className="text-lg font-bold text-indigo-700">{formatCurrency(metrics.nav)}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-xs text-gray-500">Deployed</p>
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs text-gray-500">Deployed (Principal)</p>
+                                <InfoIcon content="Funds currently active in outstanding loans (Principal Only)." />
+                            </div>
                             <p className="text-sm font-medium text-emerald-600">{formatCurrency(metrics.deployedCapital)}</p>
                         </div>
                         <div>
-                            <p className="text-xs text-gray-500">Available</p>
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs text-gray-500">Available</p>
+                                <InfoIcon content={`Funds currently available for deployment.\n\n Formula: Raised - Deployed - Variable Costs (Upfront)`} />
+                            </div>
                             <p className="text-sm font-medium text-blue-600">{formatCurrency(metrics.availableCapital)}</p>
+                        </div>
+                        <div className="col-span-2">
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs text-gray-500">Upfront Costs Deployed</p>
+                                <InfoIcon content="Variable costs paid upfront for active loans. These are deducted from Available Capital but expected to be recovered upon repayment." />
+                            </div>
+                            <p className="text-sm font-medium text-amber-600">{formatCurrency(metrics.totalUpfrontCostsDeployed)}</p>
                         </div>
                     </div>
                 </div>
@@ -143,38 +159,34 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                         </div>
                     </div>
 
-                    <div>
-                        <div className="flex items-center gap-1">
-                            <p className="text-sm text-gray-500">Portfolio IRR (Realized)</p>
-                            <InfoIcon content={`The annualized return rate of all deployed capital based on ACTUAL outcomes.\n\nThis accounts for:\n• Defaulted loans (treated as total losses)\n• Time value of money\n\nA 10% profit in 1 month = ~138% IRR annualized.`} />
-                        </div>
-                        <p className="text-lg font-bold text-indigo-700">{formatPercentage(metrics.portfolioIRR)}</p>
-                    </div>
-
-                    <div>
-                        <div className="flex items-center gap-1">
-                            <p className="text-sm text-gray-500">Portfolio IRR (Projected)</p>
-                            <InfoIcon content={`The annualized return rate if all loans perform as projected.\n\nThis shows:\n• Deal economics (ignoring defaults)\n• What the portfolio SHOULD earn\n\nCompare this to Realized IRR to see the impact of defaults.`} />
-                        </div>
-                        <p className="text-lg font-bold text-gray-600">{formatPercentage(metrics.projectedPortfolioIRR)}</p>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-xs text-gray-500">Income</p>
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs text-gray-500">Income</p>
+                                <InfoIcon content="Total projected interest income and fees from all loans." />
+                            </div>
                             <p className="text-sm font-medium text-gray-900">{formatCurrency(metrics.projectedIncome)}</p>
                         </div>
                         <div>
-                            <p className="text-xs text-gray-500">Expenses</p>
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs text-gray-500">Expenses</p>
+                                <InfoIcon content="Total projected expenses (Allocated Cost of Capital + Variable Costs)." />
+                            </div>
                             <p className="text-sm font-medium text-red-500">{formatCurrency(metrics.totalExpenses)}</p>
                         </div>
                         <div className="col-span-2">
-                            <p className="text-xs text-gray-500">Allocated Cost (Deployed)</p>
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs text-gray-500">Cost of Capital (Earned)</p>
+                                <InfoIcon content="The portion of interest income that covers the Fund's Cost of Capital. This is 'earned' back when loans repay." />
+                            </div>
                             <p className="text-sm font-medium text-gray-900">{formatCurrency(metrics.totalAllocatedCostOfCapital)}</p>
                         </div>
                         <div className="col-span-2 pt-2 border-t border-gray-100 space-y-2">
                             <div className="flex justify-between items-center">
-                                <p className="text-xs text-gray-500 font-medium">Global Cost ({fund.costOfCapitalRate}%)</p>
+                                <div className="flex items-center gap-1">
+                                    <p className="text-xs text-gray-500 font-medium">Global Cost ({fund.costOfCapitalRate}%)</p>
+                                    <InfoIcon content="The baseline cost of holding the Total Raised capital, regardless of deployment." />
+                                </div>
                                 <p className="text-xs font-bold text-amber-600">{formatCurrency(metrics.globalCost.annual)}/yr</p>
                             </div>
                             <div className="grid grid-cols-3 gap-1 text-[10px] text-gray-400">
@@ -211,7 +223,10 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                     </div>
 
                     <div>
-                        <p className="text-xs text-gray-500">Ratio</p>
+                        <div className="flex items-center gap-1">
+                            <p className="text-xs text-gray-500">Ratio</p>
+                            <InfoIcon content="NPL Principal as a percentage of Total Raised Capital." />
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                             <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                                 <div
