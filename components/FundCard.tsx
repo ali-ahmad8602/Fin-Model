@@ -149,7 +149,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
 
                     <div>
                         <div className="flex items-center gap-1">
-                            <p className="text-sm text-gray-500">Net Yield</p>
+                            <p className="text-sm text-gray-500">IM Yield</p>
                             <InfoIcon content={`The projected profit after all expenses and losses.\n\nFormula: Projected Income - Total Expenses - NPL Losses\n\nThis is a cash-basis calculation showing actual expected profit.`} />
                         </div>
                         <div className="flex items-baseline gap-2">
