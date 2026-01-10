@@ -1,3 +1,5 @@
+import { calculateXIRR, CashFlow } from './xirr';
+
 export const DAYS_IN_YEAR = 360;
 
 export interface CostItem {
@@ -98,32 +100,235 @@ export const generateRepaymentSchedule = (
       interest: interest
     }];
   } else {
-    // Monthly
-    // Assume 30 days per month for schedule count logic
-    const months = Math.floor(durationDays / 30);
+    // Monthly - FLAT INTEREST
+    // Calculate total interest upfront and distribute evenly
+    const months = Math.max(1, Math.floor(durationDays / 30));
+
+    // Calculate TOTAL interest for the full loan term (Flat Interest)
+    const totalInterest = (principal * (annualRate / 100) * durationDays) / DAYS_IN_YEAR;
+
+    // Distribute principal and interest evenly across all installments
+    const principalPerMonth = principal / months;
+    const interestPerMonth = totalInterest / months;
+    const totalPerMonth = principalPerMonth + interestPerMonth;
+
     const schedule = [];
-    let remainingPrincipal = principal;
-    const principalPerMonth = principal / months; // Flat principal repayment
-    // Date logic: +30 days each time
 
     for (let i = 1; i <= months; i++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(dueDate.getDate() + (i * 30));
 
-      // Interest for this month on remaining principal
-      // Using 30 days basis for the installment period
-      const interest = (remainingPrincipal * (annualRate / 100) * 30) / DAYS_IN_YEAR;
-      const total = principalPerMonth + interest;
-
       schedule.push({
         dueDate: dueDate.toISOString(),
-        amount: total,
+        amount: totalPerMonth,
         principal: principalPerMonth,
-        interest: interest
+        interest: interestPerMonth
       });
-
-      remainingPrincipal -= principalPerMonth;
     }
     return schedule;
   }
+};
+
+/**
+ * Calculates IRR for an individual loan based on income only (gross return).
+ *
+ * Cash Flow Analysis:
+ * - Initial Outflow (Day 0): -Principal
+ * - Inflows: Repayment schedule (Principal + Interest + Processing Fee)
+ *
+ * @param principal Loan principal amount
+ * @param interestRate Annual interest rate (percentage)
+ * @param processingFeeRate Processing fee rate (percentage of principal)
+ * @param startDate Loan start date (ISO string)
+ * @param durationDays Loan duration in days
+ * @param repaymentType BULLET or MONTHLY
+ * @param installments Optional existing installments array
+ * @returns IRR as percentage or null if calculation fails
+ */
+export const calculateLoanIRR = (
+  principal: number,
+  interestRate: number,
+  processingFeeRate: number = 0,
+  startDate: string,
+  durationDays: number,
+  repaymentType: 'BULLET' | 'MONTHLY',
+  installments?: { dueDate: string; amount: number }[]
+): number | null => {
+  const cashFlows: CashFlow[] = [];
+  const loanStartDate = new Date(startDate);
+
+  // Initial outflow: -Principal on start date
+  cashFlows.push({
+    amount: -principal,
+    date: loanStartDate
+  });
+
+  // Calculate processing fee (income)
+  const processingFee = principal * (processingFeeRate / 100);
+
+  // Use installment DATES if provided, but regenerate amounts using FLAT INTEREST
+  if (installments && installments.length > 0 && repaymentType === 'MONTHLY') {
+    // Calculate TOTAL interest for the full loan term (Flat Interest)
+    const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+
+    // Distribute principal, interest, and fee evenly across all installments
+    const numInstallments = installments.length;
+    const principalPerInstallment = principal / numInstallments;
+    const interestPerInstallment = totalInterest / numInstallments;
+    const feePerInstallment = processingFee / numInstallments;
+    const totalPerInstallment = principalPerInstallment + interestPerInstallment + feePerInstallment;
+
+    // Use stored dates, but regenerated flat amounts
+    installments.forEach((inst) => {
+      cashFlows.push({
+        amount: totalPerInstallment,
+        date: new Date(inst.dueDate)
+      });
+    });
+  } else {
+    // Generate schedule based on repayment type
+    if (repaymentType === 'BULLET') {
+      // Single payment at end
+      const interest = calculateInterest(principal, interestRate, durationDays);
+      const totalRepayable = principal + interest + processingFee;
+      const dueDate = new Date(loanStartDate);
+      dueDate.setDate(dueDate.getDate() + durationDays);
+
+      cashFlows.push({
+        amount: totalRepayable,
+        date: dueDate
+      });
+    } else {
+      // Monthly payments - FLAT INTEREST
+      const months = Math.max(1, Math.floor(durationDays / 30));
+
+      // Calculate TOTAL interest for the full loan term (Flat Interest)
+      const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+
+      // Distribute principal, interest, and fee evenly
+      const principalPerMonth = principal / months;
+      const interestPerMonth = totalInterest / months;
+      const feePerMonth = processingFee / months;
+      const totalPerMonth = principalPerMonth + interestPerMonth + feePerMonth;
+
+      for (let i = 1; i <= months; i++) {
+        const dueDate = new Date(loanStartDate);
+        dueDate.setDate(dueDate.getDate() + (i * 30));
+
+        cashFlows.push({
+          amount: totalPerMonth,
+          date: dueDate
+        });
+      }
+    }
+  }
+
+  // Calculate and return IRR
+  return calculateXIRR(cashFlows);
+};
+
+/**
+ * Calculates Net IRR for an individual loan (after costs).
+ * This shows the actual return after deducting variable costs and cost of capital.
+ *
+ * @param principal Loan principal amount
+ * @param interestRate Annual interest rate (percentage)
+ * @param processingFeeRate Processing fee rate (percentage of principal)
+ * @param startDate Loan start date (ISO string)
+ * @param durationDays Loan duration in days
+ * @param repaymentType BULLET or MONTHLY
+ * @param variableCosts Array of variable costs
+ * @param costOfCapitalRate Fund's cost of capital rate (percentage)
+ * @param installments Optional existing installments array
+ * @returns Net IRR as percentage or null if calculation fails
+ */
+export const calculateLoanNetIRR = (
+  principal: number,
+  interestRate: number,
+  processingFeeRate: number = 0,
+  startDate: string,
+  durationDays: number,
+  repaymentType: 'BULLET' | 'MONTHLY',
+  variableCosts: CostItem[],
+  costOfCapitalRate: number,
+  installments?: { dueDate: string; amount: number }[]
+): number | null => {
+  const cashFlows: CashFlow[] = [];
+  const loanStartDate = new Date(startDate);
+
+  // Calculate costs
+  const totalVariableCost = calculateVariableCosts(principal, variableCosts);
+  const allocatedCostOfCapital = calculateAllocatedCostOfCapital(principal, costOfCapitalRate, durationDays);
+  const processingFee = principal * (processingFeeRate / 100);
+
+  // Initial outflow: -Principal - Variable Costs (upfront costs)
+  cashFlows.push({
+    amount: -(principal + totalVariableCost),
+    date: loanStartDate
+  });
+
+  // Use installment DATES if provided, but regenerate amounts using FLAT INTEREST
+  if (installments && installments.length > 0 && repaymentType === 'MONTHLY') {
+    // Calculate TOTAL interest for the full loan term (Flat Interest)
+    const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+
+    // Distribute principal, interest, fee, and cost of capital evenly
+    const numInstallments = installments.length;
+    const principalPerInstallment = principal / numInstallments;
+    const interestPerInstallment = totalInterest / numInstallments;
+    const feePerInstallment = processingFee / numInstallments;
+    const costOfCapitalPerInstallment = allocatedCostOfCapital / numInstallments;
+
+    // Net payment = Principal + Interest + Fee - Cost of Capital
+    const netPerInstallment = principalPerInstallment + interestPerInstallment + feePerInstallment - costOfCapitalPerInstallment;
+
+    // Use stored dates, but regenerated flat net amounts
+    installments.forEach((inst) => {
+      cashFlows.push({
+        amount: netPerInstallment,
+        date: new Date(inst.dueDate)
+      });
+    });
+  } else {
+    // Generate schedule based on repayment type
+    if (repaymentType === 'BULLET') {
+      const interest = calculateInterest(principal, interestRate, durationDays);
+      // Net repayment = Principal + Interest + Fee - Cost of Capital
+      const netRepayable = principal + interest + processingFee - allocatedCostOfCapital;
+      const dueDate = new Date(loanStartDate);
+      dueDate.setDate(dueDate.getDate() + durationDays);
+
+      cashFlows.push({
+        amount: netRepayable,
+        date: dueDate
+      });
+    } else {
+      // Monthly payments - FLAT INTEREST
+      const months = Math.max(1, Math.floor(durationDays / 30));
+
+      // Calculate TOTAL interest for the full loan term (Flat Interest)
+      const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+
+      // Distribute principal, interest, fee, and cost of capital evenly
+      const principalPerMonth = principal / months;
+      const interestPerMonth = totalInterest / months;
+      const feePerMonth = processingFee / months;
+      const costOfCapitalPerMonth = allocatedCostOfCapital / months;
+
+      // Net payment = Principal + Interest + Fee - Cost of Capital
+      const netPerMonth = principalPerMonth + interestPerMonth + feePerMonth - costOfCapitalPerMonth;
+
+      for (let i = 1; i <= months; i++) {
+        const dueDate = new Date(loanStartDate);
+        dueDate.setDate(dueDate.getDate() + (i * 30));
+
+        cashFlows.push({
+          amount: netPerMonth,
+          date: dueDate
+        });
+      }
+    }
+  }
+
+  return calculateXIRR(cashFlows);
 };

@@ -4,8 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Loan, LoanStatus } from '@/types';
 import { formatCurrency } from '@/utils/analytics';
 import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2, ArrowUpDown } from 'lucide-react';
-import { calculateInterest, calculateVariableCosts, calculateAllocatedCostOfCapital } from '@/utils/finance';
-import { calculateXIRR } from '@/utils/xirr';
+import { calculateInterest, calculateVariableCosts, calculateAllocatedCostOfCapital, calculateLoanIRR, calculateLoanNetIRR } from '@/utils/finance';
 import { InfoIcon } from '@/components/ui/Tooltip';
 
 type SortField = 'date' | 'principal' | 'borrower' | 'status' | 'interestRate';
@@ -240,6 +239,20 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">{loan.interestRate}% <span className="text-gray-500">/ {loan.durationDays}d</span></div>
+                                        <div className="text-xs" style={{ color: 'var(--primary-purple)' }}>
+                                            IRR: {(() => {
+                                                const irr = calculateLoanIRR(
+                                                    loan.principal,
+                                                    loan.interestRate,
+                                                    loan.processingFeeRate || 0,
+                                                    loan.startDate,
+                                                    loan.durationDays,
+                                                    loan.repaymentType,
+                                                    loan.installments?.map(i => ({ dueDate: i.dueDate, amount: i.amount }))
+                                                );
+                                                return irr !== null ? `${irr.toFixed(1)}%` : 'N/A';
+                                            })()}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(loan.status)}`}>
@@ -322,20 +335,45 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                     )}
                                                                 </span>
                                                             </div>
-                                                            <div className="flex justify-between items-center p-2 rounded">
+                                                            <div className="flex justify-between items-center p-2 rounded mt-1">
                                                                 <div className="flex items-center gap-1">
-                                                                    <span className="text-gray-600 font-medium">Projected IRR</span>
-                                                                    <InfoIcon content={`The annualized return rate for this specific loan.\n\nWhy it's high: Short-duration loans have very high IRRs because capital returns quickly.\n\nExample: A 30-day loan with 10% total return = ~138% IRR annualized.`} />
+                                                                    <span className="text-gray-600 font-medium">Gross IRR</span>
+                                                                    <InfoIcon content={`The annualized return rate based on income only (before costs).\n\nCash Flows:\n- Day 0: -Principal (outflow)\n- Repayments: Principal + Interest + Processing Fee (inflows)\n\nWhy it's high: Short-duration loans have very high IRRs because capital returns quickly.\n\nExample: A 90-day loan with 7% total return ≈ 30.6% IRR annualized.`} />
                                                                 </div>
-                                                                <span className="font-bold text-indigo-700">
+                                                                <span className="font-bold" style={{ color: 'var(--primary-purple)' }}>
                                                                     {(() => {
-                                                                        const cashFlows = [
-                                                                            { amount: -loan.principal, date: new Date(loan.startDate) },
-                                                                            ...(loan.installments?.map(i => ({ amount: i.amount, date: new Date(i.dueDate) })) ||
-                                                                                [{ amount: loan.principal + totalInterest, date: new Date(new Date(loan.startDate).getTime() + loan.durationDays * 24 * 60 * 60 * 1000) }])
-                                                                        ];
-                                                                        const irr = calculateXIRR(cashFlows);
-                                                                        return irr ? `${irr.toFixed(2)}%` : 'N/A';
+                                                                        const irr = calculateLoanIRR(
+                                                                            loan.principal,
+                                                                            loan.interestRate,
+                                                                            loan.processingFeeRate || 0,
+                                                                            loan.startDate,
+                                                                            loan.durationDays,
+                                                                            loan.repaymentType,
+                                                                            loan.installments?.map(i => ({ dueDate: i.dueDate, amount: i.amount }))
+                                                                        );
+                                                                        return irr !== null ? `${irr.toFixed(2)}%` : 'N/A';
+                                                                    })()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center p-2 rounded bg-gradient-purple-pink-light" style={{ border: '1px solid var(--border-color)' }}>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="font-medium" style={{ color: 'var(--primary-purple)' }}>Net IRR</span>
+                                                                    <InfoIcon content={`The annualized return rate after all costs are deducted.\n\nCash Flows:\n- Day 0: -(Principal + Variable Costs) (outflow)\n- Repayments: Principal + Interest + Fee - Cost of Capital (inflows)\n\nThis is the true return on your deployed capital including all costs.`} />
+                                                                </div>
+                                                                <span className="font-bold" style={{ color: 'var(--primary-pink)' }}>
+                                                                    {(() => {
+                                                                        const netIrr = calculateLoanNetIRR(
+                                                                            loan.principal,
+                                                                            loan.interestRate,
+                                                                            loan.processingFeeRate || 0,
+                                                                            loan.startDate,
+                                                                            loan.durationDays,
+                                                                            loan.repaymentType,
+                                                                            loan.variableCosts,
+                                                                            costOfCapitalRate,
+                                                                            loan.installments?.map(i => ({ dueDate: i.dueDate, amount: i.amount }))
+                                                                        );
+                                                                        return netIrr !== null ? `${netIrr.toFixed(2)}%` : 'N/A';
                                                                     })()}
                                                                 </span>
                                                             </div>

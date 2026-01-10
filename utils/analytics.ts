@@ -30,18 +30,60 @@ export interface FundMetrics {
  */
 export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => {
     const fundLoans = loans.filter(l => l.fundId === fund.id);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const deployedCapital = fundLoans
+    // Calculate GROSS deployed (full principal for all active loans)
+    const grossDeployed = fundLoans
         .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
         .reduce((sum, loan) => sum + loan.principal, 0);
+
+    // Calculate principal ALREADY RECOVERED from past installments
+    let principalRecovered = 0;
+    let varCostsRecovered = 0;
+    let cocRecovered = 0;
+
+    fundLoans
+        .filter(l => l.status === 'ACTIVE') // Only ACTIVE loans have ongoing repayments
+        .forEach(loan => {
+            if (loan.installments && loan.installments.length > 0) {
+                const numInstallments = loan.installments.length;
+                const principalPerInstallment = loan.principal / numInstallments;
+
+                // Variable cost & CoC recovery per installment (flat distribution)
+                const totalVarCost = calculateVariableCosts(loan.principal, loan.variableCosts);
+                const totalCoC = calculateAllocatedCostOfCapital(loan.principal, fund.costOfCapitalRate, loan.durationDays);
+                const varCostPerInstallment = totalVarCost / numInstallments;
+                const cocPerInstallment = totalCoC / numInstallments;
+
+                loan.installments.forEach(inst => {
+                    const dueDate = new Date(inst.dueDate);
+                    dueDate.setHours(0, 0, 0, 0);
+
+                    // If installment date is today or past, consider it recovered
+                    if (dueDate <= today) {
+                        principalRecovered += principalPerInstallment;
+                        varCostsRecovered += varCostPerInstallment;
+                        cocRecovered += cocPerInstallment;
+                    }
+                });
+            }
+            // Bullet loans: Only recovered when fully closed (status change)
+        });
+
+    // NET Deployed = Gross - Recovered Principal
+    const deployedCapital = grossDeployed - principalRecovered;
 
     // Calculate upfront variable costs for ACTIVE and DEFAULTED loans
     const totalUpfrontVariableCosts = fundLoans
         .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
         .reduce((sum, loan) => sum + calculateVariableCosts(loan.principal, loan.variableCosts), 0);
 
-    // Update Available Capital: TotalRaised - DeployedPrincipal - UpfrontVariableCosts
-    const availableCapital = fund.totalRaised - deployedCapital - totalUpfrontVariableCosts;
+    // Net Upfront Costs = Total - Recovered
+    const netUpfrontCosts = totalUpfrontVariableCosts - varCostsRecovered;
+
+    // Available Capital: TotalRaised - NetDeployed - NetUpfrontCosts
+    const availableCapital = fund.totalRaised - deployedCapital - netUpfrontCosts;
 
     const nplLoans = fundLoans.filter(l => l.status === 'DEFAULTED');
 
