@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>
           <FundProvider>
-            <div className="min-h-screen bg-gray-50 text-gray-900">
+            <div className="min-h-screen text-gray-900" style={{ backgroundColor: 'var(--background)' }}>
               {children}
             </div>
           </FundProvider>

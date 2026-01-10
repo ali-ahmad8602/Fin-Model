@@ -77,14 +77,15 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setShowRaiseModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium text-sm"
+                        className="flex items-center gap-2 px-4 py-2 btn-primary rounded-lg font-medium text-sm shadow-md"
                     >
                         <TrendingUp className="w-4 h-4" />
                         Raise Capital
                     </button>
                     <Link
                         href={`/funds/${fund.id}`}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                        className="text-sm font-medium flex items-center gap-1"
+                        style={{ color: 'var(--primary-purple)' }}
                     >
                         View Details <ArrowUpRight className="w-4 h-4" />
                     </Link>
@@ -112,7 +113,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                             <p className="text-sm text-gray-500">Net Asset Value (NAV)</p>
                             <InfoIcon content={`The true value of the fund's equity.\n\nFormula: Total Raised + Earned Cost of Capital - NPL Principal\n\nRepresents the book value to investors.`} />
                         </div>
-                        <p className="text-lg font-bold text-indigo-700">{formatCurrency(metrics.nav)}</p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--primary-purple)' }}>{formatCurrency(metrics.nav)}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -257,7 +258,11 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                     step="1000"
                                     value={newCapital}
                                     onChange={(e) => setNewCapital(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none"
+                                    style={{ borderColor: 'var(--border-color)' }}
+                                    onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+
                                     placeholder="500000"
                                 />
                             </div>
@@ -272,15 +277,19 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                     step="0.1"
                                     value={newRate}
                                     onChange={(e) => setNewRate(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none"
+                                    style={{ borderColor: 'var(--border-color)' }}
+                                    onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+
                                     placeholder="16"
                                 />
                             </div>
 
                             {/* Preview */}
                             {preview && (
-                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
-                                    <p className="text-sm font-medium text-emerald-900">Preview After Raise:</p>
+                                <div className="bg-gradient-purple-pink-light rounded-lg p-4 space-y-2" style={{ border: '1px solid var(--border-color)' }}>
+                                    <p className="text-sm font-medium" style={{ color: 'var(--primary-purple)' }}>Preview After Raise:</p>
                                     <div className="space-y-1 text-sm">
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Current Total:</span>
@@ -322,7 +331,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                             <button
                                 onClick={handleRaiseCapital}
                                 disabled={loading || !preview}
-                                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 px-4 py-2 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Processing...' : 'Confirm Raise'}
                             </button>

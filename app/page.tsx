@@ -186,7 +186,7 @@ export default function Dashboard() {
           {!isCFO && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 btn-primary rounded-lg shadow-md"
             >
               <Plus className="w-4 h-4" />
               New Fund
@@ -199,7 +199,8 @@ export default function Dashboard() {
         <div className="flex space-x-4 mb-6 border-b border-gray-200 pb-1">
           <button
             onClick={() => { setViewMode('overview'); setSelectedManager(null); }}
-            className={`pb-2 px-1 ${viewMode === 'overview' ? 'border-b-2 border-black font-semibold' : 'text-gray-500'}`}
+            className={`pb-2 px-1 ${viewMode === 'overview' ? 'border-b-2 font-semibold' : 'text-gray-500'}`}
+            style={viewMode === 'overview' ? { borderColor: 'var(--primary-purple)' } : {}}
           >
             <div className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
@@ -208,7 +209,8 @@ export default function Dashboard() {
           </button>
           <button
             onClick={() => setViewMode('managers')}
-            className={`pb-2 px-1 ${viewMode === 'managers' ? 'border-b-2 border-black font-semibold' : 'text-gray-500'}`}
+            className={`pb-2 px-1 ${viewMode === 'managers' ? 'border-b-2 font-semibold' : 'text-gray-500'}`}
+            style={viewMode === 'managers' ? { borderColor: 'var(--primary-purple)' } : {}}
           >
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -241,13 +243,14 @@ export default function Dashboard() {
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => handleApproveUser(manager._id, 'fund_manager')}
-                    className="flex-1 bg-black text-white text-xs py-2 rounded hover:bg-gray-800 transition-colors"
+                    className="flex-1 btn-primary text-white text-xs py-2 rounded"
                   >
                     Approve as FM
                   </button>
                   <button
                     onClick={() => handleApproveUser(manager._id, 'cfo')}
-                    className="flex-1 border border-black text-black text-xs py-2 rounded hover:bg-gray-50 transition-colors"
+                    className="flex-1 text-xs py-2 rounded hover:bg-gray-50 transition-colors"
+                    style={{ border: '1px solid var(--primary-purple)', color: 'var(--primary-purple)' }}
                   >
                     Approve as CFO
                   </button>
@@ -353,7 +356,10 @@ export default function Dashboard() {
                 <input
                   type="text"
                   required
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none"
+                  style={{ borderColor: 'var(--border-color)' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                   placeholder="e.g. Disrupt Fund IV"
                   value={newFundName}
                   onChange={e => setNewFundName(e.target.value)}
@@ -365,7 +371,10 @@ export default function Dashboard() {
                   type="number"
                   required
                   min="0"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none"
+                  style={{ borderColor: 'var(--border-color)' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                   placeholder="1500000"
                   value={newFundAmount}
                   onChange={e => setNewFundAmount(e.target.value)}
@@ -377,7 +386,10 @@ export default function Dashboard() {
                   type="number"
                   required
                   step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none"
+                  style={{ borderColor: 'var(--border-color)' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                   placeholder="14"
                   value={newFundRate}
                   onChange={e => setNewFundRate(e.target.value)}
@@ -393,7 +405,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+                  className="flex-1 px-4 py-2 btn-primary rounded-lg"
                 >
                   Create Fund
                 </button>

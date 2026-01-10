@@ -99,7 +99,7 @@ export default function FundDetailsPage() {
     return (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
             <div className="mb-6">
-                <Link href="/" className="inline-flex items-center text-gray-500 hover:text-gray-900 mb-4 transition-colors">
+                <Link href="/" className="inline-flex items-center text-gray-500 mb-4 transition-colors hover:opacity-80" style={{ color: 'var(--primary-purple)' }}>
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Back to Dashboard
                 </Link>
@@ -137,25 +137,35 @@ export default function FundDetailsPage() {
                     <div className="flex gap-2">
                         <button
                             onClick={() => setShowLogs(!showLogs)}
-                            className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors shadow-sm text-sm font-medium ${
-                                showLogs
-                                    ? 'border-indigo-600 text-indigo-700 bg-indigo-50'
-                                    : 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50'
-                            }`}
+                            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors shadow-sm text-sm font-medium"
+                            style={showLogs ? {
+                                borderColor: 'var(--primary-purple)',
+                                color: 'var(--primary-purple)',
+                                backgroundColor: 'rgba(107, 70, 166, 0.1)'
+                            } : {
+                                borderColor: 'var(--border-color)',
+                                color: '#4B5563',
+                                backgroundColor: 'white'
+                            }}
                         >
                             <History className="w-4 h-4" />
                             Activity Logs
                         </button>
                         <Link
                             href={`/funds/${fundId}/repayments`}
-                            className="inline-flex items-center gap-2 px-4 py-2 border border-blue-200 text-blue-700 bg-blue-50/50 rounded-lg hover:bg-blue-100 transition-colors shadow-sm text-sm font-medium"
+                            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-opacity-20 transition-colors shadow-sm text-sm font-medium"
+                            style={{
+                                borderColor: 'var(--primary-pink)',
+                                color: 'var(--primary-pink)',
+                                backgroundColor: 'rgba(197, 80, 126, 0.1)'
+                            }}
                         >
                             <Calendar className="w-4 h-4" />
                             Repayments
                         </Link>
                         <button
                             onClick={() => setIsLoanModalOpen(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors shadow-sm text-sm font-medium"
+                            className="inline-flex items-center gap-2 px-4 py-2 btn-primary rounded-lg transition-colors shadow-md text-sm font-medium"
                         >
                             <Plus className="w-4 h-4" />
                             Structure Deal

@@ -53,10 +53,10 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-purple-pink-light px-4">
             <div className="max-w-md w-full">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
+                    <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--primary-purple)' }}>Create Account</h1>
                     <p className="text-gray-600">Get started with your fund management</p>
                 </div>
 
@@ -78,7 +78,11 @@ export default function SignupPage() {
                                 required
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                                className="w-full px-4 py-3 border rounded-lg focus:outline-none"
+                                style={{ borderColor: 'var(--border-color)' }}
+                                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--primary-purple)'}
+                                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+
                                 placeholder="John Doe"
                             />
                         </div>
@@ -95,7 +99,11 @@ export default function SignupPage() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                                className="w-full px-4 py-3 border rounded-lg focus:outline-none"
+                                style={{ borderColor: 'var(--border-color)' }}
+                                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--primary-purple)'}
+                                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+
                                 placeholder="you@example.com"
                             />
                         </div>
@@ -110,7 +118,11 @@ export default function SignupPage() {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                                className="w-full px-4 py-3 border rounded-lg focus:outline-none"
+                                style={{ borderColor: 'var(--border-color)' }}
+                                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--primary-purple)'}
+                                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+
                                 placeholder="••••••••"
                             />
                         </div>
@@ -125,7 +137,11 @@ export default function SignupPage() {
                                 required
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                                className="w-full px-4 py-3 border rounded-lg focus:outline-none"
+                                style={{ borderColor: 'var(--border-color)' }}
+                                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--primary-purple)'}
+                                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+
                                 placeholder="••••••••"
                             />
                         </div>
@@ -133,7 +149,7 @@ export default function SignupPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full btn-primary py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                         >
                             {loading ? 'Creating account...' : 'Create Account'}
                         </button>
@@ -142,7 +158,7 @@ export default function SignupPage() {
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600">
                             Already have an account?{' '}
-                            <Link href="/login" className="text-black font-medium hover:underline">
+                            <Link href="/login" className="font-medium hover:underline" style={{ color: 'var(--primary-purple)' }}>
                                 Sign in
                             </Link>
                         </p>
