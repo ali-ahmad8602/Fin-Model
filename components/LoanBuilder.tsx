@@ -156,7 +156,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
             durationDays,
             status: 'ACTIVE',
             variableCosts,
-            repaymentType,
+            repaymentType: scheduleItems.length > 1 ? 'MONTHLY' : 'BULLET',
             installments: scheduleItems.map(i => ({
                 id: crypto.randomUUID(),
                 ...i,

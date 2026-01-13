@@ -222,7 +222,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                 </div>
                                                 <div className="ml-4">
                                                     <div className="text-sm font-medium text-gray-900">{loan.borrowerName}</div>
-                                                    <div className="text-xs text-gray-500">{loan.repaymentType === 'MONTHLY' ? 'Monthly' : 'Bullet'} • {loan.startDate}</div>
+                                                    <div className="text-xs text-gray-500">{loan.repaymentType === 'MONTHLY' ? 'EMI' : 'Bullet'} • {loan.startDate}</div>
                                                 </div>
                                             </div>
                                         </td>
