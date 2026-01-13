@@ -100,30 +100,42 @@ export const generateRepaymentSchedule = (
       interest: interest
     }];
   } else {
-    // Monthly - FLAT INTEREST
-    // Calculate total interest upfront and distribute evenly
+    // Monthly - REDUCING BALANCE (EMI)
+    // PMT Formula: P * r * (1+r)^n / ((1+r)^n - 1)
     const months = Math.max(1, Math.floor(durationDays / 30));
+    const monthlyRate = (annualRate / 100) / 12;
 
-    // Calculate TOTAL interest for the full loan term (Flat Interest)
-    const totalInterest = (principal * (annualRate / 100) * durationDays) / DAYS_IN_YEAR;
-
-    // Distribute principal and interest evenly across all installments
-    // NOTE: Processing fee is collected upfront and excluded from here
-    const principalPerMonth = principal / months;
-    const interestPerMonth = totalInterest / months;
-    const totalPerMonth = principalPerMonth + interestPerMonth;
+    // Calculate EMI
+    let emi = 0;
+    if (monthlyRate === 0) {
+      emi = principal / months;
+    } else {
+      emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+    }
 
     const schedule = [];
+    let outstandingPrincipal = principal;
 
     for (let i = 1; i <= months; i++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(dueDate.getDate() + (i * 30));
 
+      const interestComponent = outstandingPrincipal * monthlyRate;
+      let principalComponent = emi - interestComponent;
+
+      // Handle last installment rounding
+      if (i === months) {
+        principalComponent = outstandingPrincipal;
+        emi = principalComponent + interestComponent;
+      }
+
+      outstandingPrincipal -= principalComponent;
+
       schedule.push({
         dueDate: dueDate.toISOString(),
-        amount: totalPerMonth,
-        principal: principalPerMonth,
-        interest: interestPerMonth
+        amount: emi,
+        principal: principalComponent,
+        interest: interestComponent
       });
     }
     return schedule;
@@ -164,22 +176,21 @@ export const calculateLoanIRR = (
     date: loanStartDate
   });
 
-  // Use installment DATES if provided, but regenerate amounts using FLAT INTEREST
-  if (installments && installments.length > 0 && repaymentType === 'MONTHLY') {
-    // Calculate TOTAL interest for the full loan term (Flat Interest)
-    const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
-
-    // Distribute principal and interest evenly across all installments
-    // FEE IS EXCLUDED from future installments
-    const numInstallments = installments.length;
-    const principalPerInstallment = principal / numInstallments;
-    const interestPerInstallment = totalInterest / numInstallments;
-    const totalPerInstallment = principalPerInstallment + interestPerInstallment;
-
-    // Use stored dates, but regenerated flat amounts
+  // Use installment DATES if provided, but calculate implied EMI if we needed to correct it?
+  // Actually, for IRR calculation of EXISTING loans, we should trust the 'amount' passed in `installments` if possible.
+  // BUT the previous logic EXPLICITLY regenerated them. 
+  // "Use installment DATES if provided, but regenerate amounts using FLAT INTEREST" was the old comment.
+  // The goal of this function is to calculate potentially "Projected" IRR or "True" IRR?
+  // If `installments` are passed, we should usually trust their amounts.
+  // However, `LoanList` calls this with `loan.installments`.
+  // If the user wants to see the IRR of the *actual* schedule, we should USE the amounts.
+  // If we regenerate them, we ignore manual edits!
+  // The previous code regenerated them presumably to enforce "Flat" logic.
+  // I will change this to TRUST the installments amounts if available.
+  if (installments && installments.length > 0) {
     installments.forEach((inst) => {
       cashFlows.push({
-        amount: totalPerInstallment,
+        amount: inst.amount,
         date: new Date(inst.dueDate)
       });
     });
@@ -197,23 +208,23 @@ export const calculateLoanIRR = (
         date: dueDate
       });
     } else {
-      // Monthly payments - FLAT INTEREST
+      // Monthly payments - REDUCING BALANCE (EMI)
       const months = Math.max(1, Math.floor(durationDays / 30));
+      const monthlyRate = (interestRate / 100) / 12;
 
-      // Calculate TOTAL interest for the full loan term (Flat Interest)
-      const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
-
-      // Distribute principal and interest evenly
-      const principalPerMonth = principal / months;
-      const interestPerMonth = totalInterest / months;
-      const totalPerMonth = principalPerMonth + interestPerMonth;
+      let emi = 0;
+      if (monthlyRate === 0) {
+        emi = principal / months;
+      } else {
+        emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+      }
 
       for (let i = 1; i <= months; i++) {
         const dueDate = new Date(loanStartDate);
         dueDate.setDate(dueDate.getDate() + (i * 30));
 
         cashFlows.push({
-          amount: totalPerMonth,
+          amount: emi,
           date: dueDate
         });
       }
@@ -262,25 +273,22 @@ export const calculateLoanNetIRR = (
     date: loanStartDate
   });
 
-  // Use installment DATES if provided, but regenerate amounts using FLAT INTEREST
-  if (installments && installments.length > 0 && repaymentType === 'MONTHLY') {
-    // Calculate TOTAL interest for the full loan term (Flat Interest)
-    const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+  // Trust existing installments amounts if provided, but we must subtract Cost of Capital portion
+  // Problem: We don't know the exact principal portion of each installment if we just use 'amount'.
+  // However, Allocated Cost of Capital is usually flat or based on outstanding?
+  // Previous logic: "Distribute principal, interest, and cost of capital evenly".
+  // Reducing Balance Logic: Cost of Capital should be on Outstanding Principal?
+  // Or just flat allocated? 
+  // Let's stick to: Net Flow = Installment Amount - (Allocated Cost / numInstallments).
+  // This is a simplification but keeps it comparable.
 
-    // Distribute principal, interest, and cost of capital evenly
-    const numInstallments = installments.length;
-    const principalPerInstallment = principal / numInstallments;
-    const interestPerInstallment = totalInterest / numInstallments;
-    const costOfCapitalPerInstallment = allocatedCostOfCapital / numInstallments;
+  if (installments && installments.length > 0) {
+    const allocatedCostOfCapital = calculateAllocatedCostOfCapital(principal, costOfCapitalRate, durationDays);
+    const costPerInstallment = allocatedCostOfCapital / installments.length;
 
-    // Net payment = Principal + Interest - Cost of Capital
-    // FEE IS EXCLUDED from future installments
-    const netPerInstallment = principalPerInstallment + interestPerInstallment - costOfCapitalPerInstallment;
-
-    // Use stored dates, but regenerated flat net amounts
     installments.forEach((inst) => {
       cashFlows.push({
-        amount: netPerInstallment,
+        amount: inst.amount - costPerInstallment,
         date: new Date(inst.dueDate)
       });
     });
@@ -298,26 +306,27 @@ export const calculateLoanNetIRR = (
         date: dueDate
       });
     } else {
-      // Monthly payments - FLAT INTEREST
+      // Monthly payments - REDUCING BALANCE (EMI)
       const months = Math.max(1, Math.floor(durationDays / 30));
+      const monthlyRate = (interestRate / 100) / 12;
 
-      // Calculate TOTAL interest for the full loan term (Flat Interest)
-      const totalInterest = (principal * (interestRate / 100) * durationDays) / DAYS_IN_YEAR;
+      let emi = 0;
+      if (monthlyRate === 0) {
+        emi = principal / months;
+      } else {
+        emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+      }
 
-      // Distribute principal, interest, and cost of capital evenly
-      const principalPerMonth = principal / months;
-      const interestPerMonth = totalInterest / months;
-      const costOfCapitalPerMonth = allocatedCostOfCapital / months;
-
-      // Net payment = Principal + Interest - Cost of Capital
-      const netPerMonth = principalPerMonth + interestPerMonth - costOfCapitalPerMonth;
+      // We still need to subtract Cost of Capital. 
+      // Simplified: Subtract average cost per month.
+      const costPerMonth = allocatedCostOfCapital / months;
 
       for (let i = 1; i <= months; i++) {
         const dueDate = new Date(loanStartDate);
         dueDate.setDate(dueDate.getDate() + (i * 30));
 
         cashFlows.push({
-          amount: netPerMonth,
+          amount: emi - costPerMonth,
           date: dueDate
         });
       }
