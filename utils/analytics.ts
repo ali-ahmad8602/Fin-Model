@@ -86,7 +86,8 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     const netUpfrontCosts = totalUpfrontVariableCosts - varCostsRecovered;
 
     // Available Capital: TotalRaised - NetDeployed - NetUpfrontCosts
-    const availableCapital = fund.totalRaised - deployedCapital - netUpfrontCosts;
+    // Available Capital: TotalRaised - NetDeployed
+    const availableCapital = fund.totalRaised - deployedCapital;
 
     // ---------------------------------------------------------
     // ACCUMULATED UNDEPLOYED CAPITAL COST
@@ -104,28 +105,25 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         const loanStart = new Date(loan.startDate);
         loanStart.setHours(0, 0, 0, 0);
 
-        const upfrontCost = calculateVariableCosts(loan.principal, loan.variableCosts);
-
         // 2. Deployment Event
-        events.push({ date: loanStart, change: -(loan.principal + upfrontCost) });
+        events.push({ date: loanStart, change: -loan.principal });
 
         if (loan.repaymentType === 'MONTHLY' && loan.installments && loan.installments.length > 0) {
             const numInst = loan.installments.length;
             const principalReturn = loan.principal / numInst;
-            const costReturn = upfrontCost / numInst;
 
             loan.installments.forEach(inst => {
                 const dueDate = new Date(inst.dueDate);
                 dueDate.setHours(0, 0, 0, 0);
                 // 3. Gradual Recovery
-                events.push({ date: dueDate, change: principalReturn + costReturn });
+                events.push({ date: dueDate, change: principalReturn });
             });
         } else {
             // BULLET - Recovery at end
             const maturityDate = new Date(loanStart);
             maturityDate.setDate(maturityDate.getDate() + loan.durationDays);
             maturityDate.setHours(0, 0, 0, 0);
-            events.push({ date: maturityDate, change: loan.principal + upfrontCost });
+            events.push({ date: maturityDate, change: loan.principal });
         }
     });
 
