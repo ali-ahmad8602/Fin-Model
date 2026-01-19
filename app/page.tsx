@@ -401,6 +401,8 @@ export default function Dashboard() {
                   onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
                   onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                   placeholder="14"
+                  value={newFundRate}
+                  onChange={e => setNewFundRate(e.target.value)}
                 />
               </div>
               <div>

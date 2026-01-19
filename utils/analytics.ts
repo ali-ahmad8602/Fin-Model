@@ -166,7 +166,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     const nplPrincipalLoss = nplLoans.reduce((sum, loan) => sum + loan.principal, 0);
 
     const nplRatio = fund.totalRaised > 0 ? (nplPrincipalLoss / fund.totalRaised) * 100 : 0; // Keeping Ratio on Principal basis or Volume? Usually Principal but volume asked. 
-    // User asked "NPL amount and NPl volume to be the total reapayble amount". 
+    // User asked "NPL amount nd NPl volume to be the total reapayble amount". 
     // Usually Ratio follows Volume. calculating on Volume for now to match.
     // Actually, std NPL ratio is usually Outstanding Balance / Total Loan Book. 
     // Let's stick to Principal for Ratio if they didn't ask, OR if they want Volume to be X, Ratio usually displays Volume%.
