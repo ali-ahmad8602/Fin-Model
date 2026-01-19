@@ -138,7 +138,12 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     for (const event of events) {
         if (event.date > today) break;
 
-        const periodDays = Math.max(0, Math.floor((event.date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
+        const periodDaysRaw = Math.max(0, Math.floor((event.date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+        // Exclude Inception Date (Day 0) from counting to match user expectation (e.g. 12th->16th = 3 days)
+        const isFromInception = lastDate.getTime() === inceptionDate.getTime();
+        const periodDays = (isFromInception && periodDaysRaw > 0) ? periodDaysRaw - 1 : periodDaysRaw;
+
         if (periodDays > 0 && runningAvail > 0) {
             accumulatedUndeployedCost += (runningAvail * (fund.costOfCapitalRate / 100) / 360) * periodDays;
         }
