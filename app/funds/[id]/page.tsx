@@ -109,7 +109,7 @@ export default function FundDetailsPage() {
             </div>
 
             {/* Summary Card */}
-            <div className="mb-10">
+            <div className="mb-8">
                 <FundCard fund={fund} loans={fundLoans} />
             </div>
 

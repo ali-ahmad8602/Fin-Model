@@ -15,6 +15,20 @@ interface FundCardProps {
 
 export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
     const metrics = calculateFundMetrics(fund, loans);
+
+    // PnL Metrics
+    const interestIncome = metrics.projectedIncome;
+    const processingFees = metrics.totalProcessingFees;
+    const totalIncome = interestIncome + processingFees;
+
+    const deployedCoC = metrics.totalAllocatedCostOfCapital;
+    const undeployedCoC = metrics.accumulatedUndeployedCost;
+    const variableCosts = metrics.totalUpfrontCostsDeployed;
+    const totalExpenses = deployedCoC + undeployedCoC + variableCosts;
+
+    const netPnL = totalIncome - totalExpenses;
+    const isPositivePnL = netPnL >= 0;
+
     const [showRaiseModal, setShowRaiseModal] = useState(false);
     const [newCapital, setNewCapital] = useState('');
     const [newRate, setNewRate] = useState('');
@@ -258,6 +272,55 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                 />
                             </div>
                             <span className="text-xs font-medium text-gray-700">{formatPercentage(metrics.nplRatio)}</span>
+                        </div>
+                    </div>
+
+                    {/* PnL Breakdown (User Request: Fill empty space) */}
+                    <div className="pt-2 border-t border-gray-200 bg-white/50 -mx-6 px-6 pb-2 mb-[-1.5rem]" style={{ backgroundColor: 'rgba(255,255,255,0.4)' }}>
+                        <div className="flex items-center justify-between mb-2 mt-2">
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Net PnL</span>
+                                <InfoIcon content="Net PnL = Total Income (Interest + Fees) - Total Expenses (CoC + VarCosts)" />
+                            </div>
+                            <span className={`text-sm font-bold ${isPositivePnL ? 'text-emerald-700' : 'text-red-700'}`}>
+                                {formatCurrency(netPnL)}
+                            </span>
+                        </div>
+
+                        <div className="space-y-3 mt-3">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                                <div className="col-span-2 flex justify-between border-b border-gray-100 pb-1 mb-1">
+                                    <span className="font-semibold text-gray-800">Income</span>
+                                    <span className="font-semibold text-emerald-600">{formatCurrency(totalIncome)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                    <span>Interest</span>
+                                    <span>{formatCurrency(interestIncome)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                    <span>Fees</span>
+                                    <span>{formatCurrency(processingFees)}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                                <div className="col-span-2 flex justify-between border-b border-gray-100 pb-1 mb-1">
+                                    <span className="font-semibold text-gray-800">Expenses</span>
+                                    <span className="font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                    <span>CoC (Dep)</span>
+                                    <span>{formatCurrency(deployedCoC)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                    <span>CoC (Undep)</span>
+                                    <span>{formatCurrency(undeployedCoC)}</span>
+                                </div>
+                                <div className="col-span-2 flex justify-between text-gray-500">
+                                    <span>Var. Costs</span>
+                                    <span>{formatCurrency(variableCosts)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
