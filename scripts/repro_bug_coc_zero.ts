@@ -1,9 +1,16 @@
 
+interface CapitalRaise {
+    id: string;
+    amount: number;
+    date: string;
+}
+
 interface Fund {
     id: string;
     totalRaised: number;
     costOfCapitalRate: number;
     createdAt: Date;
+    capitalRaises?: CapitalRaise[];
 }
 
 interface Loan {
@@ -21,20 +28,33 @@ function calculateUndeployedCost(fund: Fund, loans: Loan[], todayStr: string) {
     const today = new Date(todayStr);
     today.setHours(0, 0, 0, 0);
 
-    // Logic from utils/analytics.ts
     let accumulatedUndeployedCost = 0;
     const inceptionDate = new Date(fund.createdAt);
     inceptionDate.setHours(0, 0, 0, 0);
 
     const events: { date: Date; change: number }[] = [];
-    events.push({ date: inceptionDate, change: fund.totalRaised });
+
+    // CURRENT LOGIC (Suspected Buggy -> Fixed Logic)
+    if (fund.capitalRaises && fund.capitalRaises.length > 0) {
+        let totalExplicitRaises = 0;
+        fund.capitalRaises.forEach(raise => {
+            const raiseDate = new Date(raise.date);
+            raiseDate.setHours(0, 0, 0, 0);
+            events.push({ date: raiseDate, change: raise.amount });
+            totalExplicitRaises += raise.amount;
+        });
+
+        const implicitInitial = fund.totalRaised - totalExplicitRaises;
+        if (implicitInitial > 0) {
+            events.push({ date: inceptionDate, change: implicitInitial });
+        }
+    } else {
+        events.push({ date: inceptionDate, change: fund.totalRaised });
+    }
 
     loans.forEach(loan => {
         const loanStart = new Date(loan.startDate);
         loanStart.setHours(0, 0, 0, 0);
-        // Simplified: ignoring upfront costs for this repro as user didn't mention them affecting the PRINCIPAL flow explicitly, 
-        // but typically they reduce available capital. User's example "200k deployed" implies 200k principal.
-        // I will stick to principal only for the repro to match the numbers "350k - 200k = 150k".
         events.push({ date: loanStart, change: -loan.principal });
     });
 
@@ -45,13 +65,10 @@ function calculateUndeployedCost(fund: Fund, loans: Loan[], todayStr: string) {
 
     console.log('--- Event Log ---');
 
-    // CURRENT LOGIC (Likely Day 0 start)
     for (const event of events) {
         if (event.date > today) break;
 
         const periodDaysRaw = Math.max(0, Math.floor((event.date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-        // Exclude Inception Date (Day 0) logic from analytics.ts
         const isFromInception = lastDate.getTime() === inceptionDate.getTime();
         const periodDays = (isFromInception && periodDaysRaw > 0) ? periodDaysRaw - 1 : periodDaysRaw;
 
@@ -77,33 +94,33 @@ function calculateUndeployedCost(fund: Fund, loans: Loan[], todayStr: string) {
     return accumulatedUndeployedCost;
 }
 
+// SCENARIO:
+// Initial: $100k on Jan 1.
+// Raise: $50k on Jan 20.
+// Total Raised: $150k.
+// Capital Raises Array: Only has the new $50k raise!
 const fund: Fund = {
     id: '1',
-    totalRaised: 350000,
-    costOfCapitalRate: 13.5,
-    createdAt: new Date('2026-01-12')
+    totalRaised: 150000,
+    costOfCapitalRate: 10,
+    createdAt: new Date('2026-01-01'),
+    capitalRaises: [
+        { id: 'r1', amount: 50000, date: '2026-01-20' }
+    ]
 };
 
-const loans: Loan[] = [
-    {
-        fundId: '1',
-        principal: 200000,
-        startDate: new Date('2026-01-16'),
-        status: 'ACTIVE'
-    }
-];
+const loans: Loan[] = []; // No loans to keep it simple
 
-const today = '2026-01-19';
+const today = '2026-01-30';
 
-console.log(`Calculating for Today: ${today}`);
+console.log(`Calculating Bug Repro for Today: ${today}`);
 const cost = calculateUndeployedCost(fund, loans, today);
 console.log(`Total Undeployed Cost: ${cost}`);
 
-const expected = 393.75 + 168.75; // 562.5
-console.log(`Expected (User): ${expected}`);
-
-if (Math.abs(cost - expected) < 1) {
-    console.log('PASS: Matches User Logic');
-} else {
-    console.log('FAIL: Does Not Match');
-}
+// Expected Behavior (if bug exists):
+// Only sees $50k starting Jan 20.
+// Misses the $100k from Jan 1 to Jan 20.
+// And misses the $100k base from Jan 20 to Jan 30 (only sees 50k).
+// Wait, runningAvail will be 0 until Jan 20. 
+// Then 50k from Jan 20.
+// Total will be very low compared to what it should be (on 100k then 150k).

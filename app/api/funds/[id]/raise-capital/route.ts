@@ -16,7 +16,7 @@ export async function PATCH(
         }
 
         const { id } = await params;
-        const { amount, costOfCapitalRate } = await request.json();
+        const { amount, costOfCapitalRate, date } = await request.json();
 
         if (!amount || amount <= 0 || !costOfCapitalRate || costOfCapitalRate < 0) {
             return NextResponse.json(
@@ -24,6 +24,8 @@ export async function PATCH(
                 { status: 400 }
             );
         }
+
+        const raiseDate = date ? new Date(date) : new Date();
 
         // Get existing fund (with CRO override support)
         const fund = await getFundById(id, session.user.id, session.user.role);
@@ -52,6 +54,12 @@ export async function PATCH(
             filter = { _id: new ObjectId(id), userId: new ObjectId(session.user.id) };
         }
 
+        const newRaise = {
+            id: new ObjectId().toString(),
+            amount: newCapital,
+            date: raiseDate.toISOString()
+        };
+
         await funds.updateOne(
             filter,
             {
@@ -59,6 +67,9 @@ export async function PATCH(
                     totalRaised: totalCapital,
                     costOfCapitalRate: wacc,
                 },
+                $push: {
+                    capitalRaises: newRaise as any
+                }
             }
         );
 

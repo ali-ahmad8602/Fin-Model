@@ -98,8 +98,27 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
 
     const events: { date: Date; change: number }[] = [];
 
-    // 1. Initial Capital Event
-    events.push({ date: inceptionDate, change: fund.totalRaised });
+    // 1. Capital Events (Raises)
+    if (fund.capitalRaises && fund.capitalRaises.length > 0) {
+        let totalExplicitRaises = 0;
+        fund.capitalRaises.forEach(raise => {
+            const raiseDate = new Date(raise.date);
+            raiseDate.setHours(0, 0, 0, 0);
+            events.push({ date: raiseDate, change: raise.amount });
+            totalExplicitRaises += raise.amount;
+        });
+
+        // 1b. Implicit Initial Capital (Backwards Compatibility)
+        // If totalRaised > sum(raises), assume the difference was raised at inception
+        const implicitInitial = fund.totalRaised - totalExplicitRaises;
+        if (implicitInitial > 0) {
+            // Treat as Day 1 Capital
+            events.push({ date: inceptionDate, change: implicitInitial });
+        }
+    } else {
+        // Fallback: Initial Capital Event
+        events.push({ date: inceptionDate, change: fund.totalRaised });
+    }
 
     fundLoans.forEach(loan => {
         const loanStart = new Date(loan.startDate);

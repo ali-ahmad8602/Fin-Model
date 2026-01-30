@@ -32,6 +32,12 @@ export interface Loan {
     defaultedAmount?: number; // Amount marked as NPL (Partial or Full)
 }
 
+export interface CapitalRaise {
+    id: string;
+    amount: number;
+    date: string; // ISO Date
+}
+
 export interface Fund {
     id: string;
     userId: string;
@@ -39,4 +45,5 @@ export interface Fund {
     totalRaised: number;
     costOfCapitalRate: number; // % PA
     createdAt: string; // ISO Date
+    capitalRaises?: CapitalRaise[];
 }

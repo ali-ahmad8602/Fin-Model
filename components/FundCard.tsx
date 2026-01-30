@@ -32,6 +32,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
     const [showRaiseModal, setShowRaiseModal] = useState(false);
     const [newCapital, setNewCapital] = useState('');
     const [newRate, setNewRate] = useState('');
+    const [newDate, setNewDate] = useState('');
     const [loading, setLoading] = useState(false);
 
     // Calculate preview of new totals
@@ -60,13 +61,14 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
             const res = await fetch(`/api/funds/${fund.id}/raise-capital`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: additional, costOfCapitalRate: rate }),
+                body: JSON.stringify({ amount: additional, costOfCapitalRate: rate, date: newDate }),
             });
 
             if (res.ok) {
                 setShowRaiseModal(false);
                 setNewCapital('');
                 setNewRate('');
+                setNewDate('');
                 window.location.reload(); // Refresh to show new data
             } else {
                 const data = await res.json();
@@ -371,6 +373,22 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                 />
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Date of Raise (Optional)
+                                </label>
+                                <input
+                                    type="date"
+                                    value={newDate}
+                                    onChange={(e) => setNewDate(e.target.value)}
+                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none"
+                                    style={{ borderColor: 'var(--border-color)' }}
+                                    onFocus={(e) => e.target.style.borderColor = 'var(--primary-purple)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Leave blank for today</p>
+                            </div>
+
                             {/* Preview */}
                             {preview && (
                                 <div className="bg-gradient-purple-pink-light rounded-lg p-4 space-y-2" style={{ border: '1px solid var(--border-color)' }}>
@@ -396,6 +414,12 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                             <span className="text-gray-900 font-semibold">New WACC:</span>
                                             <span className="font-bold text-emerald-700">{preview.wacc.toFixed(2)}%</span>
                                         </div>
+                                        {newDate && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-900 font-semibold">Effective Date:</span>
+                                                <span className="font-bold text-gray-700">{new Date(newDate).toLocaleDateString()}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -407,6 +431,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                     setShowRaiseModal(false);
                                     setNewCapital('');
                                     setNewRate('');
+                                    setNewDate('');
                                 }}
                                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                                 disabled={loading}
