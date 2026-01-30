@@ -1,4 +1,5 @@
 
+export { }; // Force module scope
 interface Fund {
     id: string;
     totalRaised: number;

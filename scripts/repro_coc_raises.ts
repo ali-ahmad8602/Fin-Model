@@ -1,3 +1,4 @@
+export { }; // Force module scope
 
 interface CapitalRaise {
     id: string;
