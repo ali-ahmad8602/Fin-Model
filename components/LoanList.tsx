@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Loan, LoanStatus } from '@/types';
 import { formatCurrency } from '@/utils/analytics';
-import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2, ArrowUpDown } from 'lucide-react';
+import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2, ArrowUpDown, CheckCircle } from 'lucide-react';
 import { calculateInterest, calculateVariableCosts, calculateAllocatedCostOfCapital, calculateLoanIRR, calculateLoanNetIRR } from '@/utils/finance';
 import { InfoIcon } from '@/components/ui/Tooltip';
 
@@ -15,14 +15,33 @@ interface LoanListProps {
     costOfCapitalRate: number;
     onStatusChange: (id: string, status: LoanStatus, defaultedAmount?: number) => void;
     onDelete: (id: string) => void;
+    onRecordPayment?: (loanId: string, installmentId: string | null, paidDate: string, lateFee: number) => void;
 }
 
-export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete }) => {
+export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete, onRecordPayment }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc'); // Default: newest first
     const [currentPage, setCurrentPage] = useState(0);
     const loansPerPage = 10;
+
+    // Recording state
+    const [recordingId, setRecordingId] = useState<string | null>(null); // "loanId-instId" or "loanId-bullet"
+    const [recordDate, setRecordDate] = useState(new Date().toISOString().split('T')[0]);
+    const [recordLateFee, setRecordLateFee] = useState('0');
+
+    const startRecording = (key: string) => {
+        setRecordingId(key);
+        setRecordDate(new Date().toISOString().split('T')[0]);
+        setRecordLateFee('0');
+    };
+
+    const submitRecording = (loanId: string, installmentId: string | null) => {
+        if (onRecordPayment) {
+            onRecordPayment(loanId, installmentId, recordDate, Number(recordLateFee) || 0);
+        }
+        setRecordingId(null);
+    };
 
     const toggleExpand = (id: string) => {
         const newSet = new Set(expandedIds);
@@ -384,29 +403,160 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                             <th className="px-3 py-2 text-left text-gray-500">Due Date</th>
                                                                             <th className="px-3 py-2 text-right text-gray-500">Amount</th>
                                                                             <th className="px-3 py-2 text-right text-gray-500">Status</th>
+                                                                            <th className="px-3 py-2 text-right text-gray-500">Paid Date</th>
+                                                                            <th className="px-3 py-2 text-right text-gray-500">Late Fee</th>
+                                                                            <th className="px-3 py-2 text-right text-gray-500">Action</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="divide-y divide-gray-100">
-                                                                        {loan.installments.map(inst => (
-                                                                            <tr key={inst.id}>
-                                                                                <td className="px-3 py-2">{new Date(inst.dueDate).toLocaleDateString()}</td>
-                                                                                <td className="px-3 py-2 text-right font-medium">{formatCurrency(inst.amount)}</td>
-                                                                                <td className="px-3 py-2 text-right">
-                                                                                    <span className={`px-1.5 py-0.5 rounded-full ${inst.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                        inst.status === 'OVERDUE' ? 'bg-red-100 text-red-700' :
-                                                                                            'bg-gray-100 text-gray-600'
-                                                                                        }`}>
-                                                                                        {inst.status}
-                                                                                    </span>
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
+                                                                        {loan.installments.map(inst => {
+                                                                            const recKey = `${loan.id}-${inst.id}`;
+                                                                            const isRecording = recordingId === recKey;
+                                                                            return (
+                                                                                <React.Fragment key={inst.id}>
+                                                                                    <tr>
+                                                                                        <td className="px-3 py-2">{new Date(inst.dueDate).toLocaleDateString()}</td>
+                                                                                        <td className="px-3 py-2 text-right font-medium">{formatCurrency(inst.amount)}</td>
+                                                                                        <td className="px-3 py-2 text-right">
+                                                                                            <span className={`px-1.5 py-0.5 rounded-full ${inst.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                                inst.status === 'OVERDUE' ? 'bg-red-100 text-red-700' :
+                                                                                                    'bg-gray-100 text-gray-600'
+                                                                                                }`}>
+                                                                                                {inst.status === 'PAID' && <CheckCircle className="w-3 h-3 inline mr-0.5" />}
+                                                                                                {inst.status}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-right text-gray-500">
+                                                                                            {inst.paidDate ? new Date(inst.paidDate).toLocaleDateString() : '—'}
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-right">
+                                                                                            {inst.lateFee && inst.lateFee > 0 ? (
+                                                                                                <span className="text-amber-600 font-medium">{formatCurrency(inst.lateFee)}</span>
+                                                                                            ) : '—'}
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-right">
+                                                                                            {inst.status !== 'PAID' && onRecordPayment && (
+                                                                                                <button
+                                                                                                    onClick={() => startRecording(recKey)}
+                                                                                                    className="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                                                                                >
+                                                                                                    Record
+                                                                                                </button>
+                                                                                            )}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                    {isRecording && (
+                                                                                        <tr className="bg-emerald-50/50">
+                                                                                            <td colSpan={6} className="px-3 py-3">
+                                                                                                <div className="flex items-center gap-3 flex-wrap">
+                                                                                                    <div className="flex items-center gap-1">
+                                                                                                        <label className="text-xs text-gray-600">Paid Date:</label>
+                                                                                                        <input
+                                                                                                            type="date"
+                                                                                                            value={recordDate}
+                                                                                                            onChange={(e) => setRecordDate(e.target.value)}
+                                                                                                            className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500"
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                    <div className="flex items-center gap-1">
+                                                                                                        <label className="text-xs text-gray-600">Late Fee ($):</label>
+                                                                                                        <input
+                                                                                                            type="number"
+                                                                                                            min="0"
+                                                                                                            step="0.01"
+                                                                                                            value={recordLateFee}
+                                                                                                            onChange={(e) => setRecordLateFee(e.target.value)}
+                                                                                                            className="text-xs border border-gray-300 rounded px-2 py-1 w-24 focus:outline-none focus:border-emerald-500"
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                    <button
+                                                                                                        onClick={() => submitRecording(loan.id, inst.id)}
+                                                                                                        className="px-3 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors font-medium"
+                                                                                                    >
+                                                                                                        Confirm
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        onClick={() => setRecordingId(null)}
+                                                                                                        className="px-3 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                                                                                                    >
+                                                                                                        Cancel
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    )}
+                                                                                </React.Fragment>
+                                                                            );
+                                                                        })}
                                                                     </tbody>
                                                                 </table>
                                                             </div>
                                                         ) : (
-                                                            <div className="bg-white p-4 rounded-lg border border-gray-100 text-sm text-gray-500 italic text-center">
-                                                                Bullet Repayment due {new Date(new Date(loan.startDate).setDate(new Date(loan.startDate).getDate() + loan.durationDays)).toLocaleDateString()}
+                                                            <div className="bg-white p-4 rounded-lg border border-gray-100 text-sm text-gray-500 space-y-3">
+                                                                <div className="italic text-center">
+                                                                    Bullet Repayment due {new Date(new Date(loan.startDate).setDate(new Date(loan.startDate).getDate() + loan.durationDays)).toLocaleDateString()}
+                                                                </div>
+                                                                {loan.bulletPayment ? (
+                                                                    <div className="flex items-center justify-center gap-4 text-xs bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+                                                                        <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                                                                            <CheckCircle className="w-3.5 h-3.5" />
+                                                                            Received {new Date(loan.bulletPayment.paidDate).toLocaleDateString()}
+                                                                        </span>
+                                                                        {loan.bulletPayment.lateFee && loan.bulletPayment.lateFee > 0 && (
+                                                                            <span className="text-amber-600">
+                                                                                Late Fee: {formatCurrency(loan.bulletPayment.lateFee)}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    loan.status === 'ACTIVE' && onRecordPayment && (
+                                                                        recordingId === `${loan.id}-bullet` ? (
+                                                                            <div className="flex items-center gap-3 flex-wrap p-3 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <label className="text-xs text-gray-600">Paid Date:</label>
+                                                                                    <input
+                                                                                        type="date"
+                                                                                        value={recordDate}
+                                                                                        onChange={(e) => setRecordDate(e.target.value)}
+                                                                                        className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500"
+                                                                                    />
+                                                                                </div>
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <label className="text-xs text-gray-600">Late Fee ($):</label>
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="0"
+                                                                                        step="0.01"
+                                                                                        value={recordLateFee}
+                                                                                        onChange={(e) => setRecordLateFee(e.target.value)}
+                                                                                        className="text-xs border border-gray-300 rounded px-2 py-1 w-24 focus:outline-none focus:border-emerald-500"
+                                                                                    />
+                                                                                </div>
+                                                                                <button
+                                                                                    onClick={() => submitRecording(loan.id, null)}
+                                                                                    className="px-3 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors font-medium"
+                                                                                >
+                                                                                    Confirm
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => setRecordingId(null)}
+                                                                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                                                                                >
+                                                                                    Cancel
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="text-center">
+                                                                                <button
+                                                                                    onClick={() => startRecording(`${loan.id}-bullet`)}
+                                                                                    className="px-4 py-2 text-xs bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors font-medium"
+                                                                                >
+                                                                                    Record Repayment
+                                                                                </button>
+                                                                            </div>
+                                                                        )
+                                                                    )
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>

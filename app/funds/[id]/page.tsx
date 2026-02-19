@@ -23,7 +23,7 @@ interface ActivityLog {
 export default function FundDetailsPage() {
     const params = useParams(); // params.id
     const router = useRouter();
-    const { funds, loans, addLoan, updateLoanStatus, deleteLoan } = useFund();
+    const { funds, loans, addLoan, updateLoanStatus, deleteLoan, recordInstallmentPayment } = useFund();
 
     // ...
 
@@ -179,6 +179,7 @@ export default function FundDetailsPage() {
                         costOfCapitalRate={fund.costOfCapitalRate}
                         onStatusChange={updateLoanStatus}
                         onDelete={deleteLoan}
+                        onRecordPayment={recordInstallmentPayment}
                     />
                 ) : (
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

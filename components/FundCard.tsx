@@ -19,7 +19,8 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
     // PnL Metrics
     const interestIncome = metrics.projectedIncome;
     const processingFees = metrics.totalProcessingFees;
-    const totalIncome = interestIncome + processingFees;
+    const lateFees = metrics.totalLateFees;
+    const totalIncome = interestIncome + processingFees + lateFees;
 
     const deployedCoC = metrics.totalAllocatedCostOfCapital;
     const undeployedCoC = metrics.accumulatedUndeployedCost;
@@ -302,6 +303,10 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                                 <div className="flex justify-between text-gray-500">
                                     <span>Fees</span>
                                     <span>{formatCurrency(processingFees)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                    <span>Late Fees</span>
+                                    <span className={lateFees > 0 ? 'text-amber-600 font-medium' : ''}>{formatCurrency(lateFees)}</span>
                                 </div>
                             </div>
 

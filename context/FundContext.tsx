@@ -14,6 +14,7 @@ interface FundContextType {
     getFundLoans: (fundId: string) => Loan[];
     deleteLoan: (loanId: string) => Promise<void>;
     refreshData: () => Promise<void>;
+    recordInstallmentPayment: (loanId: string, installmentId: string | null, paidDate: string, lateFee: number) => Promise<void>;
 }
 
 const FundContext = createContext<FundContextType | undefined>(undefined);
@@ -133,10 +134,53 @@ export const FundProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const recordInstallmentPayment = async (loanId: string, installmentId: string | null, paidDate: string, lateFee: number) => {
+        try {
+            const loan = loans.find(l => l.id === loanId);
+            if (!loan) return;
+
+            let body: any = {};
+
+            if (installmentId === null) {
+                // Bullet loan payment
+                body = {
+                    bulletPayment: { paidDate, lateFee: lateFee || 0 },
+                    status: 'CLOSED' as LoanStatus
+                };
+            } else {
+                // Monthly installment payment
+                const updatedInstallments = loan.installments.map(inst =>
+                    inst.id === installmentId
+                        ? { ...inst, status: 'PAID' as const, paidDate, lateFee: lateFee || 0 }
+                        : inst
+                );
+                body = { installments: updatedInstallments };
+
+                // If all installments are now PAID, close the loan
+                const allPaid = updatedInstallments.every(inst => inst.status === 'PAID');
+                if (allPaid) {
+                    body.status = 'CLOSED' as LoanStatus;
+                }
+            }
+
+            const res = await fetch(`/api/loans/${loanId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+
+            if (res.ok) {
+                await refreshData();
+            }
+        } catch (error) {
+            console.error('Failed to record payment:', error);
+        }
+    };
+
     const getFundLoans = (fundId: string) => loans.filter(l => l.fundId === fundId);
 
     return (
-        <FundContext.Provider value={{ funds, loans, loading, addFund, addLoan, updateLoanStatus, getFundLoans, deleteLoan, refreshData }}>
+        <FundContext.Provider value={{ funds, loans, loading, addFund, addLoan, updateLoanStatus, getFundLoans, deleteLoan, refreshData, recordInstallmentPayment }}>
             {children}
         </FundContext.Provider>
     );

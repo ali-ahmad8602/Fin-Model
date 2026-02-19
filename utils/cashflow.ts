@@ -51,6 +51,9 @@ export function getAllRepaymentEvents(loans: Loan[], fund: Fund): CashFlowEvent[
             loan.installments.forEach((inst, idx) => {
                 const dueDate = new Date(inst.dueDate);
 
+                // Skip paid installments — they are realised, not forecasts
+                if (inst.status === 'PAID') return;
+
                 // Only include future repayments
                 if (dueDate >= today) {
                     const isLastInstallment = idx === loan.installments.length - 1;
@@ -100,7 +103,9 @@ export function getAllRepaymentEvents(loans: Loan[], fund: Fund): CashFlowEvent[
                 }
             });
         } else {
-            // Bullet loan
+            // Bullet loan — skip if already received
+            if (loan.bulletPayment) continue;
+
             const maturityDate = new Date(loan.startDate);
             maturityDate.setDate(maturityDate.getDate() + loan.durationDays);
 
@@ -151,10 +156,27 @@ export function calculateCashFlowForecast(
 ): { projections: CashFlowProjection[], summary: CashFlowSummary } {
     const events = getAllRepaymentEvents(loans, fund);
 
-    // Calculate current available capital
-    const deployedCapital = loans
+    // Calculate current available capital (accounting for PAID installment recovery)
+    const grossDeployed = loans
         .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')
         .reduce((sum, l) => sum + l.principal, 0);
+
+    // Principal recovered from PAID installments
+    let paidPrincipalRecovered = 0;
+    loans
+        .filter(l => l.status === 'ACTIVE')
+        .forEach(l => {
+            if (l.installments && l.installments.length > 0) {
+                const principalPerInst = l.principal / l.installments.length;
+                l.installments.forEach(inst => {
+                    if (inst.status === 'PAID') {
+                        paidPrincipalRecovered += principalPerInst;
+                    }
+                });
+            }
+        });
+
+    const deployedCapital = grossDeployed - paidPrincipalRecovered;
 
     const activeTotalVarCosts = loans
         .filter(l => l.status === 'ACTIVE' || l.status === 'DEFAULTED')

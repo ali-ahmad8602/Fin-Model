@@ -22,8 +22,14 @@ export interface Loan {
         status: string;
         principalComponent: number;
         interestComponent: number;
+        paidDate?: string;
+        lateFee?: number;
     }>;
     defaultedAmount?: number;
+    bulletPayment?: {
+        paidDate: string;
+        lateFee?: number;
+    };
     createdAt: Date;
 }
 

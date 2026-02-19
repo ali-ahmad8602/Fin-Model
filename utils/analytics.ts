@@ -12,6 +12,7 @@ export interface FundMetrics {
     totalExpenses: number; // Cost of Capital + Variable Costs
     totalAllocatedCostOfCapital: number;
     totalUpfrontCostsDeployed: number; // New Metric
+    totalLateFees: number; // Standalone metric — sum of all late fees collected
     nav: number; // New Metric
     dailyAvailableCapitalCost: number; // Cost of undeployed capital per day
     accumulatedUndeployedCost: number; // Total cost on undeployed since inception
@@ -46,6 +47,9 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     let varCostsRecovered = 0;
     let cocRecovered = 0;
 
+    // Calculate total late fees from all loans
+    let totalLateFees = 0;
+
     fundLoans
         .filter(l => l.status === 'ACTIVE') // Only ACTIVE loans have ongoing repayments
         .forEach(loan => {
@@ -60,18 +64,40 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
                 const cocPerInstallment = totalCoC / numInstallments;
 
                 loan.installments.forEach(inst => {
-                    const dueDate = new Date(inst.dueDate);
-                    dueDate.setHours(0, 0, 0, 0);
-
-                    // If installment date is today or past, consider it recovered
-                    if (dueDate <= today) {
+                    // Use explicit PAID status instead of date-based proxy
+                    if (inst.status === 'PAID') {
                         principalRecovered += principalPerInstallment;
                         varCostsRecovered += varCostPerInstallment;
                         cocRecovered += cocPerInstallment;
                     }
+
+                    // Sum late fees from paid installments
+                    if (inst.lateFee && inst.lateFee > 0) {
+                        totalLateFees += inst.lateFee;
+                    }
                 });
             }
             // Bullet loans: Only recovered when fully closed (status change)
+            // Sum bullet late fees
+            if (loan.bulletPayment && loan.bulletPayment.lateFee && loan.bulletPayment.lateFee > 0) {
+                totalLateFees += loan.bulletPayment.lateFee;
+            }
+        });
+
+    // Also include late fees from CLOSED loans
+    fundLoans
+        .filter(l => l.status === 'CLOSED')
+        .forEach(loan => {
+            if (loan.installments && loan.installments.length > 0) {
+                loan.installments.forEach(inst => {
+                    if (inst.lateFee && inst.lateFee > 0) {
+                        totalLateFees += inst.lateFee;
+                    }
+                });
+            }
+            if (loan.bulletPayment && loan.bulletPayment.lateFee && loan.bulletPayment.lateFee > 0) {
+                totalLateFees += loan.bulletPayment.lateFee;
+            }
         });
 
     // NET Deployed = Gross - Recovered Principal
@@ -251,6 +277,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
 
     // Portfolio IRR Calculation - Realized (actual outcomes)
     // Treats defaulted loans as losses (no inflows)
+    // Uses paidDate when available for more accurate IRR
     const realizedCashFlows: CashFlow[] = [];
     fundLoans.forEach(loan => {
         // 1. Outflow: Principal on Start Date
@@ -260,13 +287,29 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         if (loan.status !== 'DEFAULTED') {
             if (loan.installments && loan.installments.length > 0) {
                 loan.installments.forEach(inst => {
-                    realizedCashFlows.push({ amount: inst.amount, date: new Date(inst.dueDate) });
+                    // Use paidDate if available, otherwise use dueDate
+                    const inflowDate = inst.paidDate ? new Date(inst.paidDate) : new Date(inst.dueDate);
+                    let inflowAmount = inst.amount;
+                    // Include late fee in the inflow
+                    if (inst.lateFee && inst.lateFee > 0) {
+                        inflowAmount += inst.lateFee;
+                    }
+                    realizedCashFlows.push({ amount: inflowAmount, date: inflowDate });
                 });
             } else {
-                // Bullet Loan Fallback
+                // Bullet Loan
                 const totalRepayable = loan.principal + calculateInterest(loan.principal, loan.interestRate, loan.durationDays);
-                const dueDate = new Date(new Date(loan.startDate).getTime() + loan.durationDays * 24 * 60 * 60 * 1000);
-                realizedCashFlows.push({ amount: totalRepayable, date: dueDate });
+                let bulletDate: Date;
+                let bulletAmount = totalRepayable;
+                if (loan.bulletPayment) {
+                    bulletDate = new Date(loan.bulletPayment.paidDate);
+                    if (loan.bulletPayment.lateFee && loan.bulletPayment.lateFee > 0) {
+                        bulletAmount += loan.bulletPayment.lateFee;
+                    }
+                } else {
+                    bulletDate = new Date(new Date(loan.startDate).getTime() + loan.durationDays * 24 * 60 * 60 * 1000);
+                }
+                realizedCashFlows.push({ amount: bulletAmount, date: bulletDate });
             }
         }
         // For DEFAULTED loans: no inflows added = total loss reflected in IRR
@@ -306,6 +349,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         totalExpenses: totalAllocatedExpenses,
         totalAllocatedCostOfCapital,
         totalUpfrontCostsDeployed: totalUpfrontVariableCosts,
+        totalLateFees,
         nav: fund.totalRaised + totalAllocatedCostOfCapital - nplPrincipalLoss,
         dailyAvailableCapitalCost: (availableCapital * (fund.costOfCapitalRate / 100)) / 360,
         accumulatedUndeployedCost,
@@ -368,15 +412,19 @@ export const calculateRealizedImYield = (fund: Fund, loans: Loan[]): number => {
         const totalCoC = calculateAllocatedCostOfCapital(loan.principal, fund.costOfCapitalRate, loan.durationDays);
 
         // Net Yield = Income - Expenses
-        const netYield = Math.max(0, totalIncome - (totalVarCosts + totalCoC));
+        let netYield = Math.max(0, totalIncome - (totalVarCosts + totalCoC));
 
-        // To keep it consistent with the "Repayment - BreakEven" logic:
-        // Repayment = Principal + Interest + Fee (Assuming Fee is part of the economics, even if upfront)
-        // BreakEven = Principal + VarCosts + CoC
-        // Surplus = Repayment - BreakEven
-        // = (Principal + Interest + Fee) - (Principal + VarCosts + CoC)
-        // = Interest + Fee - VarCosts - CoC
-        // This matches the user's formula.
+        // Include late fees in realized yield
+        if (loan.installments && loan.installments.length > 0) {
+            loan.installments.forEach(inst => {
+                if (inst.lateFee && inst.lateFee > 0) {
+                    netYield += inst.lateFee;
+                }
+            });
+        }
+        if (loan.bulletPayment && loan.bulletPayment.lateFee && loan.bulletPayment.lateFee > 0) {
+            netYield += loan.bulletPayment.lateFee;
+        }
 
         totalRealizedYield += netYield;
     });

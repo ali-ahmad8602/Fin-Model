@@ -14,6 +14,8 @@ export interface Installment {
     principalComponent: number;
     interestComponent: number;
     status: 'PENDING' | 'PAID' | 'OVERDUE';
+    paidDate?: string;       // ISO date — when payment was actually received
+    lateFee?: number;        // Flat amount — user-entered late fee
 }
 
 export interface Loan {
@@ -30,6 +32,10 @@ export interface Loan {
     repaymentType: RepaymentType;
     installments: Installment[];
     defaultedAmount?: number; // Amount marked as NPL (Partial or Full)
+    bulletPayment?: {
+        paidDate: string;    // ISO date — when bullet repayment was received
+        lateFee?: number;    // Flat amount — user-entered late fee
+    };
 }
 
 export interface CapitalRaise {
