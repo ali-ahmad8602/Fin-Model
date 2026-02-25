@@ -5,6 +5,7 @@ import { Fund, Loan, CostItem } from '@/types';
 import { calculateBreakEvenAmount, calculateNetYield, DAYS_IN_YEAR, calculateAllocatedCostOfCapital, calculateVariableCosts, generateRepaymentSchedule } from '@/utils/finance';
 import { Plus, Trash2, Calculator, Info, Calendar } from 'lucide-react';
 import { RepaymentType } from '@/types';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface LoanBuilderProps {
     fund: Fund;
@@ -13,6 +14,10 @@ interface LoanBuilderProps {
 }
 
 export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel }) => {
+    const { currency: globalDisplayCurrency, rate: conversionRate } = useCurrency();
+    const [inputCurrency, setInputCurrency] = useState<'USD' | 'AED'>(globalDisplayCurrency);
+    const currencySymbol = inputCurrency === 'AED' ? 'AED' : '$';
+
     // Basic Details
     const [borrowerName, setBorrowerName] = useState('');
     const [principal, setPrincipal] = useState(100000);
@@ -142,22 +147,33 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
 
         // Strict Validation: Schedule must match Terms
         if (Math.abs(totalAmount - expectedTotalRepayment) > 0.05) {
-            alert(`Total Scheduled Repayment ($${totalAmount.toFixed(2)}) must match the Term-based Total ($${expectedTotalRepayment.toFixed(2)}).\n\nDifference: $${(totalAmount - expectedTotalRepayment).toFixed(2)}`);
+            alert(`Total Scheduled Repayment (${currencySymbol}${totalAmount.toFixed(2)}) must match the Term-based Total (${currencySymbol}${expectedTotalRepayment.toFixed(2)}).\n\nDifference: ${currencySymbol}${(totalAmount - expectedTotalRepayment).toFixed(2)}`);
             return;
         }
+
+        // Logic: if input is AED, divide by conversionRate to store in USD
+        const storePrincipal = inputCurrency === 'AED' ? principal / conversionRate : principal;
+        const storeVariableCosts = variableCosts; // percentages don't change
+
+        const finalScheduleItems = scheduleItems.map(item => ({
+            ...item,
+            amount: inputCurrency === 'AED' ? item.amount / conversionRate : item.amount,
+            principal: inputCurrency === 'AED' ? item.principal / conversionRate : item.principal,
+            interest: inputCurrency === 'AED' ? item.interest / conversionRate : item.interest,
+        }));
 
         onSave({
             fundId: fund.id,
             borrowerName,
-            principal,
+            principal: storePrincipal,
             interestRate,
             processingFeeRate,
             startDate,
             durationDays,
             status: 'ACTIVE',
-            variableCosts,
-            repaymentType: scheduleItems.length > 1 ? 'MONTHLY' : 'BULLET',
-            installments: scheduleItems.map(i => ({
+            variableCosts: storeVariableCosts,
+            repaymentType: finalScheduleItems.length > 1 ? 'MONTHLY' : 'BULLET',
+            installments: finalScheduleItems.map(i => ({
                 id: crypto.randomUUID(),
                 ...i,
                 status: 'PENDING',
@@ -180,6 +196,26 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                 {/* INPUTS COLUMN */}
                 <form id="loan-form" onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-4">
+                        <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-4">
+                            <span className="text-sm font-medium text-gray-700">Input Currency</span>
+                            <div className="flex bg-white rounded-md p-1 shadow-sm border border-gray-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setInputCurrency('USD')}
+                                    className={`px-3 py-1 text-xs rounded-md transition-all ${inputCurrency === 'USD' ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900'}`}
+                                >
+                                    USD ($)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setInputCurrency('AED')}
+                                    className={`px-3 py-1 text-xs rounded-md transition-all ${inputCurrency === 'AED' ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900'}`}
+                                >
+                                    AED
+                                </button>
+                            </div>
+                        </div>
+
                         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Loan Details</h3>
 
                         <div>
@@ -194,7 +230,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Principal ($)</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Principal ({currencySymbol})</label>
                                 <input
                                     type="number" required min="0"
                                     className="w-full px-3 py-2 border rounded-md text-sm"
@@ -221,7 +257,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                                         value={processingFeeRate} onChange={e => setProcessingFeeRate(Number(e.target.value))}
                                     />
                                     <span className="absolute right-8 top-2 text-xs text-gray-400">
-                                        (${processingFeeAmount.toFixed(0)})
+                                        ({currencySymbol}{processingFeeAmount.toFixed(0)})
                                     </span>
                                 </div>
                             </div>
@@ -311,7 +347,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                                         onChange={e => handleScheduleChange(index, 'dueDate', e.target.value)}
                                     />
                                     <div className="flex-1 relative">
-                                        <span className="absolute left-2 top-1 text-xs text-gray-400">$</span>
+                                        <span className="absolute left-2 top-1 text-xs text-gray-400">{currencySymbol}</span>
                                         <input
                                             type="number"
                                             className="w-full pl-5 pr-2 py-1 text-xs border rounded font-medium"
@@ -340,37 +376,37 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Fund Cost Overlay ({fund.costOfCapitalRate}%)</span>
-                                <span className="font-mono text-red-500">-${((principal * (fund.costOfCapitalRate / 100) * durationDays) / DAYS_IN_YEAR).toFixed(2)}</span>
+                                <span className="font-mono text-red-500">-{currencySymbol}{((principal * (fund.costOfCapitalRate / 100) * durationDays) / DAYS_IN_YEAR).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Processing Fee Income</span>
-                                <span className="font-mono text-emerald-600">+${processingFeeAmount.toFixed(2)}</span>
+                                <span className="font-mono text-emerald-600">+{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Variable Costs</span>
-                                <span className="font-mono text-red-500">-${calculateVariableCosts(principal, variableCosts).toFixed(2)}</span>
+                                <span className="font-mono text-red-500">-{currencySymbol}{calculateVariableCosts(principal, variableCosts).toFixed(2)}</span>
                             </div>
                             {/* Total Repayment Display */}
                             <div className="pt-2 border-t border-gray-200 space-y-1">
                                 <div className="flex justify-between font-medium text-gray-500 text-xs">
                                     <span>Target Repayment (Interest Only)</span>
-                                    <span>${expectedTotalRepayment.toFixed(2)}</span>
+                                    <span>{currencySymbol}{expectedTotalRepayment.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-gray-900">
                                     <span>Scheduled Repayment</span>
                                     <span className={Math.abs(totalRepayment - expectedTotalRepayment) > 0.05 ? 'text-red-600' : 'text-emerald-700'}>
-                                        ${totalRepayment.toFixed(2)}
+                                        {currencySymbol}{totalRepayment.toFixed(2)}
                                     </span>
                                 </div>
                                 {Math.abs(totalRepayment - expectedTotalRepayment) > 0.05 && (
                                     <div className="text-right text-xs text-red-500 font-medium">
-                                        Diff: ${(totalRepayment - expectedTotalRepayment).toFixed(2)}
+                                        Diff: {currencySymbol}{(totalRepayment - expectedTotalRepayment).toFixed(2)}
                                     </div>
                                 )}
                             </div>
                             <div className="flex justify-between font-medium mt-1">
                                 <span>Total Cost Barrier</span>
-                                <span className="font-mono text-red-600">${totalCost.toFixed(2)}</span>
+                                <span className="font-mono text-red-600">{currencySymbol}{totalCost.toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -380,7 +416,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                                 <span className="text-xs font-semibold text-gray-500 uppercase">Break Even Amount</span>
                                 <Info className="w-3 h-3 text-gray-400 mt-0.5" />
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">${breakEven.toFixed(2)}</p>
+                            <p className="text-2xl font-bold text-gray-900">{currencySymbol}{breakEven.toFixed(2)}</p>
                             <p className="text-xs text-gray-500 mt-1">To cover principal + all costs</p>
                         </div>
 
@@ -390,7 +426,7 @@ export const LoanBuilder: React.FC<LoanBuilderProps> = ({ fund, onSave, onCancel
                                 <span className={`text-xs font-semibold uppercase ${netYield >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>Projected Net Yield</span>
                             </div>
                             <p className={`text-2xl font-bold ${netYield >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                                {netYield >= 0 ? '+' : ''}${netYield.toFixed(2)}
+                                {netYield >= 0 ? '+' : '-'}{currencySymbol}{Math.abs(netYield).toFixed(2)}
                             </p>
                             <p className={`text-xs mt-1 ${netYield >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                 {((netYield / principal) * 100).toFixed(2)}% ROI

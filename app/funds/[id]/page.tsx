@@ -9,6 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Calendar, History } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface ActivityLog {
     _id: string;
@@ -26,6 +27,7 @@ export default function FundDetailsPage() {
     const router = useRouter();
     const { funds, loans, addLoan, updateLoanStatus, deleteLoan, recordInstallmentPayment } = useFund();
     const { data: session } = useSession();
+    const { currency, toggleCurrency } = useCurrency();
     const isViewer = session?.user?.role === 'viewer';
 
     // ...
@@ -166,6 +168,14 @@ export default function FundDetailsPage() {
                             <Calendar className="w-4 h-4" />
                             Repayments
                         </Link>
+                        <button
+                            onClick={toggleCurrency}
+                            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+                        >
+                            <span className={currency === 'USD' ? 'font-bold' : ''}>USD</span>
+                            <span className="text-gray-300">|</span>
+                            <span className={currency === 'AED' ? 'font-bold' : ''}>AED</span>
+                        </button>
                         {!isViewer && (
                             <button
                                 onClick={() => setIsLoanModalOpen(true)}

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Fund, Loan } from '@/types';
-import { calculateFundMetrics, formatCurrency, formatPercentage } from '@/utils/analytics';
+import { calculateFundMetrics, formatPercentage } from '@/utils/analytics';
+import { useCurrency } from '@/context/CurrencyContext';
 // import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowUpRight, ArrowDownRight, AlertTriangle, DollarSign, Wallet, TrendingUp } from 'lucide-react';
 import { InfoIcon } from '@/components/ui/Tooltip';
@@ -15,6 +16,7 @@ interface FundCardProps {
 }
 
 export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = false }) => {
+    const { formatC, symbol, toUSD } = useCurrency();
     const metrics = calculateFundMetrics(fund, loans);
 
     // PnL Metrics
@@ -60,10 +62,11 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
 
         setLoading(true);
         try {
+            const amountInUSD = toUSD(additional);
             const res = await fetch(`/api/funds/${fund.id}/raise-capital`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: additional, costOfCapitalRate: rate, date: newDate }),
+                body: JSON.stringify({ amount: amountInUSD, costOfCapitalRate: rate, date: newDate }),
             });
 
             if (res.ok) {
@@ -130,7 +133,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                             <p className="text-sm text-gray-500">Raised</p>
                             <InfoIcon content="Total capital raised from investors for this fund." />
                         </div>
-                        <p className="text-lg font-semibold text-gray-900">{formatCurrency(metrics.totalRaised)}</p>
+                        <p className="text-lg font-semibold text-gray-900">{formatC(metrics.totalRaised)}</p>
                     </div>
 
                     <div className="pt-2 border-t border-gray-100">
@@ -138,7 +141,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                             <p className="text-sm text-gray-500">Net Asset Value (NAV)</p>
                             <InfoIcon content={`The true value of the fund's equity.\n\nFormula: Total Raised + Earned Cost of Capital - NPL Principal\n\nRepresents the book value to investors.`} />
                         </div>
-                        <p className="text-lg font-bold" style={{ color: 'var(--primary-purple)' }}>{formatCurrency(metrics.nav)}</p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--primary-purple)' }}>{formatC(metrics.nav)}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -147,21 +150,21 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                                 <p className="text-xs text-gray-500">Deployed (Principal)</p>
                                 <InfoIcon content="Funds currently active in outstanding loans (Principal Only)." />
                             </div>
-                            <p className="text-sm font-medium text-emerald-600">{formatCurrency(metrics.deployedCapital)}</p>
+                            <p className="text-sm font-medium text-emerald-600">{formatC(metrics.deployedCapital)}</p>
                         </div>
                         <div>
                             <div className="flex items-center gap-1">
                                 <p className="text-xs text-gray-500">Available</p>
                                 <InfoIcon content={`Funds currently available for deployment.\n\n Formula: Raised - Deployed - Variable Costs (Upfront)`} />
                             </div>
-                            <p className="text-sm font-medium text-blue-600">{formatCurrency(metrics.availableCapital)}</p>
+                            <p className="text-sm font-medium text-blue-600">{formatC(metrics.availableCapital)}</p>
                         </div>
                         <div className="col-span-2">
                             <div className="flex items-center gap-1">
                                 <p className="text-xs text-gray-500">Upfront Costs Deployed</p>
                                 <InfoIcon content="Variable costs paid upfront for active loans. These are deducted from Available Capital but expected to be recovered upon repayment." />
                             </div>
-                            <p className="text-sm font-medium text-amber-600">{formatCurrency(metrics.totalUpfrontCostsDeployed)}</p>
+                            <p className="text-sm font-medium text-amber-600">{formatC(metrics.totalUpfrontCostsDeployed)}</p>
                         </div>
                     </div>
                 </div>
@@ -180,7 +183,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                         </div>
                         <div className="flex items-baseline gap-2">
                             <p className={`text-lg font-semibold ${metrics.netYield >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {formatCurrency(metrics.netYield)}
+                                {formatC(metrics.netYield)}
                             </p>
                         </div>
                     </div>
@@ -190,7 +193,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                             <p className="text-sm text-gray-500">Processing Fee Income</p>
                             <InfoIcon content="Total processing fees collected upfront upon loan deployment. This revenue is distinct from interest yield." />
                         </div>
-                        <p className="text-lg font-bold text-gray-900">{formatCurrency(metrics.totalProcessingFees)}</p>
+                        <p className="text-lg font-bold text-gray-900">{formatC(metrics.totalProcessingFees)}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -199,14 +202,14 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                                 <p className="text-xs text-gray-500">Interest Income</p>
                                 <InfoIcon content="Total projected interest income from all active/closed loans." />
                             </div>
-                            <p className="text-sm font-medium text-gray-900">{formatCurrency(metrics.projectedIncome)}</p>
+                            <p className="text-sm font-medium text-gray-900">{formatC(metrics.projectedIncome)}</p>
                         </div>
                         <div>
                             <div className="flex items-center gap-1">
                                 <p className="text-xs text-gray-500">Expenses</p>
                                 <InfoIcon content="Total projected expenses (Allocated Cost of Capital + Variable Costs)." />
                             </div>
-                            <p className="text-sm font-medium text-red-500">{formatCurrency(metrics.totalExpenses)}</p>
+                            <p className="text-sm font-medium text-red-500">{formatC(metrics.totalExpenses)}</p>
                         </div>
                         <div className="col-span-2 grid grid-cols-2 gap-4">
                             <div>
@@ -214,14 +217,14 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                                     <p className="text-xs text-gray-500">Cost of Capital (Accrued)</p>
                                     <InfoIcon content="The portion of interest income that covers the Fund's Cost of Capital for deployed funds. This is 'accrued' over the loan tenure." />
                                 </div>
-                                <p className="text-sm font-medium text-gray-900">{formatCurrency(metrics.totalAllocatedCostOfCapital)}</p>
+                                <p className="text-sm font-medium text-gray-900">{formatC(metrics.totalAllocatedCostOfCapital)}</p>
                             </div>
                             <div>
                                 <div className="flex items-center gap-1">
                                     <p className="text-xs text-gray-500">CoC (Undeployed)</p>
                                     <InfoIcon content="The accumulated cost of capital for funds that remained undeployed since fund inception. Represents the total 'leakage' or loss from idle capital." />
                                 </div>
-                                <p className="text-sm font-medium text-amber-600">{formatCurrency(metrics.accumulatedUndeployedCost)}</p>
+                                <p className="text-sm font-medium text-amber-600">{formatC(metrics.accumulatedUndeployedCost)}</p>
                             </div>
                         </div>
                         <div className="col-span-2 pt-2 border-t border-gray-100 space-y-2">
@@ -230,20 +233,20 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                                     <p className="text-xs text-gray-500 font-medium">Global Cost ({fund.costOfCapitalRate}%)</p>
                                     <InfoIcon content="The baseline cost of holding the Total Raised capital, regardless of deployment." />
                                 </div>
-                                <p className="text-xs font-bold text-amber-600">{formatCurrency(metrics.globalCost.annual)}/yr</p>
+                                <p className="text-xs font-bold text-amber-600">{formatC(metrics.globalCost.annual)}/yr</p>
                             </div>
                             <div className="grid grid-cols-3 gap-1 text-[10px] text-gray-400">
                                 <div>
                                     <span className="block">Daily</span>
-                                    <span className="font-medium text-gray-600">{formatCurrency(metrics.globalCost.daily)}</span>
+                                    <span className="font-medium text-gray-600">{formatC(metrics.globalCost.daily)}</span>
                                 </div>
                                 <div>
                                     <span className="block">Weekly</span>
-                                    <span className="font-medium text-gray-600">{formatCurrency(metrics.globalCost.weekly)}</span>
+                                    <span className="font-medium text-gray-600">{formatC(metrics.globalCost.weekly)}</span>
                                 </div>
                                 <div>
                                     <span className="block">Monthly</span>
-                                    <span className="font-medium text-gray-600">{formatCurrency(metrics.globalCost.monthly)}</span>
+                                    <span className="font-medium text-gray-600">{formatC(metrics.globalCost.monthly)}</span>
                                 </div>
                             </div>
                         </div>
@@ -262,7 +265,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                             <p className="text-sm text-gray-500">NPL Volume</p>
                             <InfoIcon content={`Non-Performing Loans - the outstanding principal and interest lost to defaults.\n\nFormula: Sum of (Principal + Interest) for all defaulted loans. Processing fees are excluded as they are collected upfront.`} />
                         </div>
-                        <p className="text-lg font-semibold text-gray-900">{formatCurrency(metrics.nplVolume)}</p>
+                        <p className="text-lg font-semibold text-gray-900">{formatC(metrics.nplVolume)}</p>
                     </div>
 
                     <div>
@@ -289,7 +292,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                                 <InfoIcon content="Net PnL = Total Income (Interest + Fees) - Total Expenses (CoC + VarCosts)" />
                             </div>
                             <span className={`text-sm font-bold ${isPositivePnL ? 'text-emerald-700' : 'text-red-700'}`}>
-                                {formatCurrency(netPnL)}
+                                {formatC(netPnL)}
                             </span>
                         </div>
 
@@ -297,38 +300,38 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                                 <div className="col-span-2 flex justify-between border-b border-gray-100 pb-1 mb-1">
                                     <span className="font-semibold text-gray-800">Income</span>
-                                    <span className="font-semibold text-emerald-600">{formatCurrency(totalIncome)}</span>
+                                    <span className="font-semibold text-emerald-600">{formatC(totalIncome)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-500">
                                     <span>Interest</span>
-                                    <span>{formatCurrency(interestIncome)}</span>
+                                    <span>{formatC(interestIncome)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-500">
                                     <span>Fees</span>
-                                    <span>{formatCurrency(processingFees)}</span>
+                                    <span>{formatC(processingFees)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-500">
                                     <span>Late Fees</span>
-                                    <span className={lateFees > 0 ? 'text-amber-600 font-medium' : ''}>{formatCurrency(lateFees)}</span>
+                                    <span className={lateFees > 0 ? 'text-amber-600 font-medium' : ''}>{formatC(lateFees)}</span>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                                 <div className="col-span-2 flex justify-between border-b border-gray-100 pb-1 mb-1">
                                     <span className="font-semibold text-gray-800">Expenses</span>
-                                    <span className="font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                                    <span className="font-semibold text-red-600">{formatC(totalExpenses)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-500">
                                     <span>CoC (Dep)</span>
-                                    <span>{formatCurrency(deployedCoC)}</span>
+                                    <span>{formatC(deployedCoC)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-500">
                                     <span>CoC (Undep)</span>
-                                    <span>{formatCurrency(undeployedCoC)}</span>
+                                    <span>{formatC(undeployedCoC)}</span>
                                 </div>
                                 <div className="col-span-2 flex justify-between text-gray-500">
                                     <span>Var. Costs</span>
-                                    <span>{formatCurrency(variableCosts)}</span>
+                                    <span>{formatC(variableCosts)}</span>
                                 </div>
                             </div>
                         </div>
@@ -345,7 +348,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Additional Capital ($)
+                                    Additional Capital ({symbol})
                                 </label>
                                 <input
                                     type="number"
@@ -404,15 +407,15 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                                     <div className="space-y-1 text-sm">
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Current Total:</span>
-                                            <span className="font-medium">{formatCurrency(fund.totalRaised)}</span>
+                                            <span className="font-medium">{formatC(fund.totalRaised)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">New Raise:</span>
-                                            <span className="font-medium text-emerald-600">+{formatCurrency(Number(newCapital))}</span>
+                                            <span className="font-medium text-emerald-600">+{formatC(Number(newCapital))}</span>
                                         </div>
                                         <div className="flex justify-between pt-2 border-t border-emerald-200">
                                             <span className="text-gray-900 font-semibold">New Total:</span>
-                                            <span className="font-bold text-emerald-700">{formatCurrency(preview.totalCapital)}</span>
+                                            <span className="font-bold text-emerald-700">{formatC(preview.totalCapital)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Current CoC:</span>

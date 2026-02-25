@@ -7,6 +7,7 @@ import { Plus, LogOut, Users, PieChart, Settings, Shield } from 'lucide-react';
 import { Fund } from '@/types';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface Manager {
   _id: string;
@@ -19,6 +20,7 @@ interface Manager {
 export default function Dashboard() {
   const { funds, loans, addFund, loading: fundsLoading } = useFund();
   const { data: session } = useSession();
+  const { currency, toggleCurrency } = useCurrency();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [selectedManager, setSelectedManager] = useState<string | null>(null);
@@ -192,6 +194,14 @@ export default function Dashboard() {
               Admin Panel
             </Link>
           )}
+          <button
+            onClick={toggleCurrency}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+          >
+            <span className={currency === 'USD' ? 'font-bold' : ''}>USD</span>
+            <span className="text-gray-300">|</span>
+            <span className={currency === 'AED' ? 'font-bold' : ''}>AED</span>
+          </button>
           <Link
             href="/settings"
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"

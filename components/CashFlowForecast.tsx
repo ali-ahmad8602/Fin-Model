@@ -3,7 +3,8 @@
 import React from 'react';
 import { Fund, Loan } from '@/types';
 import { calculateCashFlowForecast } from '@/utils/cashflow';
-import { formatCurrency, calculateRealizedImYield } from '@/utils/analytics';
+import { calculateRealizedImYield } from '@/utils/analytics';
+import { useCurrency } from '@/context/CurrencyContext';
 import { Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,6 +14,7 @@ interface CashFlowForecastProps {
 }
 
 export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans }) => {
+    const { formatC } = useCurrency();
     const { projections, summary } = calculateCashFlowForecast(fund, loans, 12);
 
     // Filter out today's initial state for the table
@@ -27,7 +29,7 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                         <Calendar className="w-4 h-4" />
                         <span className="text-xs font-medium uppercase">Next 30 Days</span>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-600">{formatCurrency(summary.next30Days)}</p>
+                    <p className="text-2xl font-bold text-emerald-600">{formatC(summary.next30Days)}</p>
                     <p className="text-xs text-gray-500 mt-1">Expected Repayments</p>
                 </div>
 
@@ -36,7 +38,7 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                         <Calendar className="w-4 h-4" />
                         <span className="text-xs font-medium uppercase">Next 90 Days</span>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-600">{formatCurrency(summary.next90Days)}</p>
+                    <p className="text-2xl font-bold text-emerald-600">{formatC(summary.next90Days)}</p>
                     <p className="text-xs text-gray-500 mt-1">Expected Repayments</p>
                 </div>
 
@@ -45,7 +47,7 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                         <TrendingUp className="w-4 h-4" />
                         <span className="text-xs font-medium uppercase">Peak Available</span>
                     </div>
-                    <p className="text-2xl font-bold text-indigo-600">{formatCurrency(summary.peakAvailable)}</p>
+                    <p className="text-2xl font-bold text-indigo-600">{formatC(summary.peakAvailable)}</p>
                     <p className="text-xs text-gray-500 mt-1">{new Date(summary.peakDate).toLocaleDateString()}</p>
                 </div>
 
@@ -54,7 +56,7 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                         <TrendingDown className="w-4 h-4" />
                         <span className="text-xs font-medium uppercase">Lowest Available</span>
                     </div>
-                    <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.lowestAvailable)}</p>
+                    <p className="text-2xl font-bold text-orange-600">{formatC(summary.lowestAvailable)}</p>
                     <p className="text-xs text-gray-500 mt-1">{new Date(summary.lowestDate).toLocaleDateString()}</p>
                 </div>
 
@@ -64,7 +66,7 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                         <span className="text-xs font-medium uppercase">Realized IM Yield</span>
                     </div>
                     <p className="text-2xl font-bold text-emerald-600">
-                        {formatCurrency(calculateRealizedImYield(fund, loans))}
+                        {formatC(calculateRealizedImYield(fund, loans))}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">Procured Till Date</p>
                 </div>
@@ -107,7 +109,7 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                                             })}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
-                                            {formatCurrency(projection.expectedRepayments)}
+                                            {formatC(projection.expectedRepayments)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-900">
                                             <div className="space-y-1">
@@ -120,14 +122,14 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
                                                             </span>
                                                         )}
                                                         <span className="text-xs text-gray-400">
-                                                            {formatCurrency(event.amount)}
+                                                            {formatC(event.amount)}
                                                         </span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                                            {formatCurrency(projection.cumulativeAvailable)}
+                                            {formatC(projection.cumulativeAvailable)}
                                         </td>
                                     </tr>
                                 ))}

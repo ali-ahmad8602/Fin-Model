@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Loan, LoanStatus } from '@/types';
-import { formatCurrency } from '@/utils/analytics';
+import { useCurrency } from '@/context/CurrencyContext';
 import { BadgeCheck, AlertCircle, Clock, ChevronDown, ChevronUp, DollarSign, Calendar, Trash2, ArrowUpDown, CheckCircle } from 'lucide-react';
 import { calculateInterest, calculateVariableCosts, calculateAllocatedCostOfCapital, calculateLoanIRR, calculateLoanNetIRR } from '@/utils/finance';
 import { InfoIcon } from '@/components/ui/Tooltip';
@@ -20,6 +20,7 @@ interface LoanListProps {
 }
 
 export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete, onRecordPayment, readOnly = false }) => {
+    const { formatC, symbol, toUSD } = useCurrency();
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc'); // Default: newest first
@@ -39,7 +40,8 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
 
     const submitRecording = (loanId: string, installmentId: string | null) => {
         if (onRecordPayment) {
-            onRecordPayment(loanId, installmentId, recordDate, Number(recordLateFee) || 0);
+            const lateFeeInUSD = toUSD(Number(recordLateFee) || 0);
+            onRecordPayment(loanId, installmentId, recordDate, lateFeeInUSD);
         }
         setRecordingId(null);
     };
@@ -247,9 +249,9 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900 font-medium">{formatCurrency(loan.principal)}</div>
+                                            <div className="text-sm text-gray-900 font-medium">{formatC(loan.principal)}</div>
                                             {loan.defaultedAmount && loan.defaultedAmount > 0 ? (
-                                                <div className="text-xs text-red-600">-{formatCurrency(totalRepayable)} (NPL)</div>
+                                                <div className="text-xs text-red-600">-{formatC(totalRepayable)} (NPL)</div>
                                             ) : null}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -307,28 +309,28 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                         <div className="bg-white p-4 rounded-lg border border-gray-100 text-sm space-y-2 shadow-sm">
                                                             <div className="flex justify-between">
                                                                 <span className="text-gray-500">Principal</span>
-                                                                <span className="font-medium">{formatCurrency(loan.principal)}</span>
+                                                                <span className="font-medium">{formatC(loan.principal)}</span>
                                                             </div>
                                                             <div className="flex justify-between text-emerald-600">
                                                                 <span className="">+ Interest Income</span>
-                                                                <span className="font-medium">{formatCurrency(totalInterest)}</span>
+                                                                <span className="font-medium">{formatC(totalInterest)}</span>
                                                             </div>
                                                             {loan.processingFeeRate && loan.processingFeeRate > 0 && (
                                                                 <div className="flex justify-between text-gray-400 italic">
                                                                     <span className="">Processing Fee (Paid Upfront)</span>
-                                                                    <span className="font-medium">{formatCurrency(loan.principal * (loan.processingFeeRate / 100))}</span>
+                                                                    <span className="font-medium">{formatC(loan.principal * (loan.processingFeeRate / 100))}</span>
                                                                 </div>
                                                             )}
                                                             <div className="flex flex-col gap-1 text-red-500 text-xs">
                                                                 {loan.variableCosts.map(cost => (
                                                                     <div key={cost.id} className="flex justify-between">
                                                                         <span>- {cost.name} ({cost.percentage}%)</span>
-                                                                        <span>{formatCurrency(loan.principal * (cost.percentage / 100))}</span>
+                                                                        <span>{formatC(loan.principal * (cost.percentage / 100))}</span>
                                                                     </div>
                                                                 ))}
                                                                 <div className="flex justify-between">
                                                                     <span>- Cost of Capital ({costOfCapitalRate}%)</span>
-                                                                    <span className="text-red-500">{formatCurrency(calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays))}</span>
+                                                                    <span className="text-red-500">{formatC(calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays))}</span>
                                                                 </div>
                                                             </div>
                                                             <div className="pt-2 border-t border-gray-100 mt-2">
@@ -340,7 +342,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                     <span className={`font-bold ${(totalInterest - calculateVariableCosts(loan.principal, loan.variableCosts) - calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays)) >= 0
                                                                         ? 'text-emerald-700' : 'text-red-700'
                                                                         }`}>
-                                                                        {formatCurrency(
+                                                                        {formatC(
                                                                             totalInterest -
                                                                             calculateVariableCosts(loan.principal, loan.variableCosts) -
                                                                             calculateAllocatedCostOfCapital(loan.principal, costOfCapitalRate, loan.durationDays)
@@ -419,7 +421,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                                 <React.Fragment key={inst.id}>
                                                                                     <tr>
                                                                                         <td className="px-3 py-2">{new Date(inst.dueDate).toLocaleDateString()}</td>
-                                                                                        <td className="px-3 py-2 text-right font-medium">{formatCurrency(inst.amount)}</td>
+                                                                                        <td className="px-3 py-2 text-right font-medium">{formatC(inst.amount)}</td>
                                                                                         <td className="px-3 py-2 text-right">
                                                                                             <span className={`px-1.5 py-0.5 rounded-full ${inst.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
                                                                                                 inst.status === 'OVERDUE' ? 'bg-red-100 text-red-700' :
@@ -434,7 +436,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                                         </td>
                                                                                         <td className="px-3 py-2 text-right">
                                                                                             {inst.lateFee && inst.lateFee > 0 ? (
-                                                                                                <span className="text-amber-600 font-medium">{formatCurrency(inst.lateFee)}</span>
+                                                                                                <span className="text-amber-600 font-medium">{formatC(inst.lateFee)}</span>
                                                                                             ) : '—'}
                                                                                         </td>
                                                                                         <td className="px-3 py-2 text-right">
@@ -462,7 +464,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                                                         />
                                                                                                     </div>
                                                                                                     <div className="flex items-center gap-1">
-                                                                                                        <label className="text-xs text-gray-600">Late Fee ($):</label>
+                                                                                                        <label className="text-xs text-gray-600">Late Fee ({symbol}):</label>
                                                                                                         <input
                                                                                                             type="number"
                                                                                                             min="0"
@@ -507,7 +509,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                         </span>
                                                                         {loan.bulletPayment.lateFee && loan.bulletPayment.lateFee > 0 && (
                                                                             <span className="text-amber-600">
-                                                                                Late Fee: {formatCurrency(loan.bulletPayment.lateFee)}
+                                                                                Late Fee: {formatC(loan.bulletPayment.lateFee)}
                                                                             </span>
                                                                         )}
                                                                     </div>
@@ -525,7 +527,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                                     />
                                                                                 </div>
                                                                                 <div className="flex items-center gap-1">
-                                                                                    <label className="text-xs text-gray-600">Late Fee ($):</label>
+                                                                                    <label className="text-xs text-gray-600">Late Fee ({symbol}):</label>
                                                                                     <input
                                                                                         type="number"
                                                                                         min="0"
