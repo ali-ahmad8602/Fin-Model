@@ -4,6 +4,7 @@ import { getFundById, getFundOwnerInfo } from '@/lib/models/Fund';
 import { getDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { logActivity, ActionTypes, getUserInfoForLog } from '@/lib/activityLogger';
+import { canMutate, canViewAll } from '@/lib/rbac';
 
 export async function PATCH(
     request: NextRequest,
@@ -13,6 +14,10 @@ export async function PATCH(
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!canMutate(session.user.role)) {
+            return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -28,7 +33,8 @@ export async function PATCH(
         const raiseDate = date ? new Date(date) : new Date();
 
         // Get existing fund (with CRO override support)
-        const fund = await getFundById(id, session.user.id, session.user.role);
+        const effectiveRole = canViewAll(session.user.role) ? 'cro' : session.user.role;
+        const fund = await getFundById(id, session.user.id, effectiveRole);
         if (!fund) {
             return NextResponse.json({ error: 'Fund not found' }, { status: 404 });
         }
@@ -48,7 +54,7 @@ export async function PATCH(
 
         // CRO can update any fund
         let filter;
-        if (session.user.role === 'cro') {
+        if (canViewAll(session.user.role)) {
             filter = { _id: new ObjectId(id) };
         } else {
             filter = { _id: new ObjectId(id), userId: new ObjectId(session.user.id) };

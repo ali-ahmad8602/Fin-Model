@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { getLoanById, updateLoan, deleteLoan, getLoanOwnerInfo } from '@/lib/models/Loan';
 import { logActivity, ActionTypes, getUserInfoForLog } from '@/lib/activityLogger';
 import { getFundOwnerInfo } from '@/lib/models/Fund';
+import { canMutate, canViewAll } from '@/lib/rbac';
 
 export async function GET(
     request: NextRequest,
@@ -15,7 +16,8 @@ export async function GET(
         }
 
         const { id } = await params;
-        const loan = await getLoanById(id, session.user.id, session.user.role);
+        const effectiveRole = canViewAll(session.user.role) ? 'cro' : session.user.role;
+        const loan = await getLoanById(id, session.user.id, effectiveRole);
         if (!loan) {
             return NextResponse.json({ error: 'Loan not found' }, { status: 404 });
         }
@@ -51,6 +53,10 @@ export async function PUT(
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!canMutate(session.user.role)) {
+            return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -116,6 +122,10 @@ export async function DELETE(
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!canMutate(session.user.role)) {
+            return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
         }
 
         const { id } = await params;

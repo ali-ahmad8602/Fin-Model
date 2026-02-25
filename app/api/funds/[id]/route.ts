@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getFundById, updateFund, deleteFund, getFundOwnerInfo } from '@/lib/models/Fund';
 import { logActivity, ActionTypes, getUserInfoForLog } from '@/lib/activityLogger';
+import { canMutate, canViewAll } from '@/lib/rbac';
 
 export async function GET(
     request: NextRequest,
@@ -14,7 +15,8 @@ export async function GET(
         }
 
         const { id } = await params;
-        const fund = await getFundById(id, session.user.id, session.user.role);
+        const effectiveRole = canViewAll(session.user.role) ? 'cro' : session.user.role;
+        const fund = await getFundById(id, session.user.id, effectiveRole);
 
         if (!fund) {
             return NextResponse.json({ error: 'Fund not found' }, { status: 404 });
@@ -49,6 +51,10 @@ export async function PUT(
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!canMutate(session.user.role)) {
+            return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -94,6 +100,10 @@ export async function DELETE(
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!canMutate(session.user.role)) {
+            return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
         }
 
         const { id } = await params;

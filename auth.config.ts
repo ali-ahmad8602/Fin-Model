@@ -30,7 +30,7 @@ export const authConfig: NextAuthConfig = {
         async session({ session, token }) {
             if (token && session.user) {
                 session.user.id = token.id as string;
-                session.user.role = token.role as 'fund_manager' | 'cro';
+                session.user.role = token.role as 'fund_manager' | 'cro' | 'viewer' | 'super_admin';
                 session.user.status = token.status as 'pending' | 'active' | 'rejected';
             }
             return session;

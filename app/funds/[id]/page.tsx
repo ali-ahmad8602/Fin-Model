@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { useFund } from '@/context/FundContext';
 import { FundCard } from '@/components/FundCard';
 import { LoanList } from '@/components/LoanList';
-import { LoanBuilder } from '@/components/LoanBuilder'; // Ensure index export or direct
-import { useParams, useRouter } from 'next/navigation'; // Correct hook for app directory
+import { LoanBuilder } from '@/components/LoanBuilder';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Calendar, History } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 interface ActivityLog {
     _id: string;
@@ -24,6 +25,8 @@ export default function FundDetailsPage() {
     const params = useParams(); // params.id
     const router = useRouter();
     const { funds, loans, addLoan, updateLoanStatus, deleteLoan, recordInstallmentPayment } = useFund();
+    const { data: session } = useSession();
+    const isViewer = session?.user?.role === 'viewer';
 
     // ...
 
@@ -110,7 +113,7 @@ export default function FundDetailsPage() {
 
             {/* Summary Card */}
             <div className="mb-8">
-                <FundCard fund={fund} loans={fundLoans} />
+                <FundCard fund={fund} loans={fundLoans} readOnly={isViewer} />
             </div>
 
             {/* Loan Management Section */}
@@ -163,13 +166,15 @@ export default function FundDetailsPage() {
                             <Calendar className="w-4 h-4" />
                             Repayments
                         </Link>
-                        <button
-                            onClick={() => setIsLoanModalOpen(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2 btn-primary rounded-lg transition-colors shadow-md text-sm font-medium"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Structure Deal
-                        </button>
+                        {!isViewer && (
+                            <button
+                                onClick={() => setIsLoanModalOpen(true)}
+                                className="inline-flex items-center gap-2 px-4 py-2 btn-primary rounded-lg transition-colors shadow-md text-sm font-medium"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Structure Deal
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -180,6 +185,7 @@ export default function FundDetailsPage() {
                         onStatusChange={updateLoanStatus}
                         onDelete={deleteLoan}
                         onRecordPayment={recordInstallmentPayment}
+                        readOnly={isViewer}
                     />
                 ) : (
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

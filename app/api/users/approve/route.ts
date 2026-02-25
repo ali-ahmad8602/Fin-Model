@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { canManageUsers } from '@/lib/rbac';
 
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();
-        if (!session?.user?.id || session.user.role !== 'cro') {
+        if (!session?.user?.id || !canManageUsers(session.user.role)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

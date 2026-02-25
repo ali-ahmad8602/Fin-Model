@@ -16,9 +16,10 @@ interface LoanListProps {
     onStatusChange: (id: string, status: LoanStatus, defaultedAmount?: number) => void;
     onDelete: (id: string) => void;
     onRecordPayment?: (loanId: string, installmentId: string | null, paidDate: string, lateFee: number) => void;
+    readOnly?: boolean;
 }
 
-export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete, onRecordPayment }) => {
+export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, onStatusChange, onDelete, onRecordPayment, readOnly = false }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc'); // Default: newest first
@@ -217,7 +218,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                     Status <SortIcon field="status" />
                                 </button>
                             </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            {!readOnly && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -273,24 +274,26 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                 {loan.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <select
-                                                key={`${loan.id}-${loan.status}`}
-                                                value={loan.status}
-                                                onChange={(e) => {
-                                                    handleAction(loan, e.target.value);
-                                                    // Reset dropdown immediately after action
-                                                    e.target.value = loan.status;
-                                                }}
-                                                className="text-xs border-gray-300 rounded focus:ring-black focus:border-black w-28"
-                                            >
-                                                <option value={loan.status}>{loan.status === 'ACTIVE' ? 'Active' : loan.status === 'CLOSED' ? 'Closed' : 'Defaulted'}</option>
-                                                {loan.status !== 'ACTIVE' && <option value="ACTIVE">Set Active</option>}
-                                                {loan.status !== 'CLOSED' && <option value="CLOSED">Set Closed</option>}
-                                                {loan.status !== 'DEFAULTED' && <option value="DEFAULTED_CONFIRM">Mark NPL</option>}
-                                                <option value="DELETE" className="text-red-600">Delete Loan</option>
-                                            </select>
-                                        </td>
+                                        {!readOnly && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <select
+                                                    key={`${loan.id}-${loan.status}`}
+                                                    value={loan.status}
+                                                    onChange={(e) => {
+                                                        handleAction(loan, e.target.value);
+                                                        // Reset dropdown immediately after action
+                                                        e.target.value = loan.status;
+                                                    }}
+                                                    className="text-xs border-gray-300 rounded focus:ring-black focus:border-black w-28"
+                                                >
+                                                    <option value={loan.status}>{loan.status === 'ACTIVE' ? 'Active' : loan.status === 'CLOSED' ? 'Closed' : 'Defaulted'}</option>
+                                                    {loan.status !== 'ACTIVE' && <option value="ACTIVE">Set Active</option>}
+                                                    {loan.status !== 'CLOSED' && <option value="CLOSED">Set Closed</option>}
+                                                    {loan.status !== 'DEFAULTED' && <option value="DEFAULTED_CONFIRM">Mark NPL</option>}
+                                                    <option value="DELETE" className="text-red-600">Delete Loan</option>
+                                                </select>
+                                            </td>
+                                        )}
                                     </tr>
                                     {isExpanded && (
                                         <tr className="bg-gray-50/50">
@@ -435,7 +438,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                                             ) : '—'}
                                                                                         </td>
                                                                                         <td className="px-3 py-2 text-right">
-                                                                                            {inst.status !== 'PAID' && onRecordPayment && (
+                                                                                            {!readOnly && inst.status !== 'PAID' && onRecordPayment && (
                                                                                                 <button
                                                                                                     onClick={() => startRecording(recKey)}
                                                                                                     className="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded border border-emerald-200 hover:bg-emerald-100 transition-colors"
@@ -509,7 +512,7 @@ export const LoanList: React.FC<LoanListProps> = ({ loans, costOfCapitalRate, on
                                                                         )}
                                                                     </div>
                                                                 ) : (
-                                                                    loan.status === 'ACTIVE' && onRecordPayment && (
+                                                                    loan.status === 'ACTIVE' && !readOnly && onRecordPayment && (
                                                                         recordingId === `${loan.id}-bullet` ? (
                                                                             <div className="flex items-center gap-3 flex-wrap p-3 bg-emerald-50/50 rounded-lg border border-emerald-100">
                                                                                 <div className="flex items-center gap-1">

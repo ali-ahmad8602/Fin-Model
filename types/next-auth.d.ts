@@ -7,21 +7,21 @@ declare module "next-auth" {
     interface Session {
         user: {
             /** The user's role. */
-            role: 'fund_manager' | 'cro';
+            role: 'fund_manager' | 'cro' | 'viewer' | 'super_admin';
             status: 'pending' | 'active' | 'rejected';
             id: string;
         } & DefaultSession["user"]
     }
 
     interface User {
-        role: 'fund_manager' | 'cro';
+        role: 'fund_manager' | 'cro' | 'viewer' | 'super_admin';
         status: 'pending' | 'active' | 'rejected';
     }
 }
 
 declare module "next-auth/jwt" {
     interface JWT {
-        role: 'fund_manager' | 'cro';
+        role: 'fund_manager' | 'cro' | 'viewer' | 'super_admin';
         status: 'pending' | 'active' | 'rejected';
         id: string;
     }

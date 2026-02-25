@@ -11,9 +11,10 @@ import Link from 'next/link';
 interface FundCardProps {
     fund: Fund;
     loans: Loan[];
+    readOnly?: boolean;
 }
 
-export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
+export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = false }) => {
     const metrics = calculateFundMetrics(fund, loans);
 
     // PnL Metrics
@@ -97,13 +98,15 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans }) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowRaiseModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 btn-primary rounded-lg font-medium text-sm shadow-md"
-                    >
-                        <TrendingUp className="w-4 h-4" />
-                        Raise Capital
-                    </button>
+                    {!readOnly && (
+                        <button
+                            onClick={() => setShowRaiseModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 btn-primary rounded-lg font-medium text-sm shadow-md"
+                        >
+                            <TrendingUp className="w-4 h-4" />
+                            Raise Capital
+                        </button>
+                    )}
                     <Link
                         href={`/funds/${fund.id}`}
                         className="text-sm font-medium flex items-center gap-1"

@@ -2,17 +2,19 @@ import { getDatabase } from '../mongodb';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
 
+export type UserRole = 'fund_manager' | 'cro' | 'viewer' | 'super_admin';
+
 export interface User {
     _id?: ObjectId;
     email: string;
     password: string;
     name: string;
-    role: 'fund_manager' | 'cro';
+    role: UserRole;
     status: 'pending' | 'active' | 'rejected';
     createdAt: Date;
 }
 
-export async function createUser(email: string, password: string, name: string, role: 'fund_manager' | 'cro' = 'fund_manager'): Promise<User> {
+export async function createUser(email: string, password: string, name: string, role: UserRole = 'fund_manager'): Promise<User> {
     const db = await getDatabase();
     const users = db.collection<User>('users');
 

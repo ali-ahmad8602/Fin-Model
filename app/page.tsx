@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFund } from '@/context/FundContext';
 import { FundCard } from '@/components/FundCard';
-import { Plus, LogOut, Users, PieChart, Settings } from 'lucide-react';
+import { Plus, LogOut, Users, PieChart, Settings, Shield } from 'lucide-react';
 import { Fund } from '@/types';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [newFundDate, setNewFundDate] = useState(new Date().toISOString().split('T')[0]);
 
   const fetchManagers = () => {
-    if (session?.user?.role === 'cro') {
+    if (session?.user?.role === 'cro' || session?.user?.role === 'super_admin') {
       fetch('/api/users')
         .then(res => res.json())
         .then(data => setManagers(data))
@@ -137,8 +137,12 @@ export default function Dashboard() {
   }
 
   const isCRO = session?.user?.role === 'cro';
+  const isSuperAdmin = session?.user?.role === 'super_admin';
+  const isViewer = session?.user?.role === 'viewer';
+  const canSeeAll = isCRO || isSuperAdmin || isViewer;
+  const canDoActions = !isViewer;
 
-  const filteredFunds = isCRO && selectedManager
+  const filteredFunds = canSeeAll && selectedManager
     ? funds.filter(f => f.userId.toString() === selectedManager)
     : funds;
 
@@ -169,16 +173,25 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {isCRO ? 'Organization Overview' : 'Portfolio Overview'}
+            {canSeeAll ? 'Organization Overview' : 'Portfolio Overview'}
           </h1>
           <p className="text-gray-500">
-            {isCRO ? 'Monitor all funds and managers.' : 'Manage your funds, capital deployment, and risk.'}
+            {canSeeAll ? 'Monitor all funds and managers.' : 'Manage your funds, capital deployment, and risk.'}
           </p>
           {session?.user && (
-            <p className="text-sm text-gray-400 mt-1">Welcome, {session.user.name} ({isCRO ? 'CRO' : 'Fund Manager'})</p>
+            <p className="text-sm text-gray-400 mt-1">Welcome, {session.user.name} ({isSuperAdmin ? 'Super Admin' : isCRO ? 'CRO' : isViewer ? 'Viewer' : 'Fund Manager'})</p>
           )}
         </div>
         <div className="flex gap-3">
+          {isSuperAdmin && (
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+            >
+              <Shield className="w-4 h-4" />
+              Admin Panel
+            </Link>
+          )}
           <Link
             href="/settings"
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -193,7 +206,7 @@ export default function Dashboard() {
             <LogOut className="w-4 h-4" />
             Logout
           </button>
-          {!isCRO && (
+          {!isCRO && !isViewer && (
             <button
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2 btn-primary rounded-lg shadow-md"
@@ -205,7 +218,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {isCRO && (
+      {canSeeAll && (
         <div className="flex space-x-4 mb-6 border-b border-gray-200 pb-1">
           <button
             onClick={() => { setViewMode('overview'); setSelectedManager(null); }}
@@ -230,7 +243,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {viewMode === 'managers' && isCRO ? (
+      {viewMode === 'managers' && canSeeAll ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {managers.map(manager => (
             <div key={manager._id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
@@ -304,7 +317,7 @@ export default function Dashboard() {
           {displayedFunds.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
               <p className="text-gray-500 mb-4">No funds active.</p>
-              {!isCRO && (
+              {canDoActions && !canSeeAll && (
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="text-blue-600 font-medium hover:underline"
@@ -317,10 +330,11 @@ export default function Dashboard() {
             <>
               {displayedFunds.map(fund => (
                 <div key={fund.id}>
-                  {isCRO && <div className="text-xs text-gray-400 mb-1">Managed by: {getManagerName(fund.userId.toString())}</div>}
+                  {canSeeAll && <div className="text-xs text-gray-400 mb-1">Managed by: {getManagerName(fund.userId.toString())}</div>}
                   <FundCard
                     fund={fund}
                     loans={loans.filter(l => l.fundId === fund.id)}
+                    readOnly={isViewer}
                   />
                 </div>
               ))}

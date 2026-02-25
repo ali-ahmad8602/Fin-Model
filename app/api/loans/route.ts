@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { getLoansByUserId, createLoan, getAllLoans } from '@/lib/models/Loan';
 import { logActivity, ActionTypes, getUserInfoForLog } from '@/lib/activityLogger';
 import { getFundOwnerInfo } from '@/lib/models/Fund';
+import { canViewAll, canMutate } from '@/lib/rbac';
 
 export async function GET(request: NextRequest) {
     try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
         const fundId = searchParams.get('fundId');
 
         let loans;
-        if (session.user.role === 'cro') {
+        if (canViewAll(session.user.role)) {
             loans = await getAllLoans();
         } else {
             loans = await getLoansByUserId(session.user.id);
@@ -37,6 +38,10 @@ export async function POST(request: NextRequest) {
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!canMutate(session.user.role)) {
+            return NextResponse.json({ error: 'Forbidden: read-only access' }, { status: 403 });
         }
 
         const body = await request.json();
