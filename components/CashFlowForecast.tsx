@@ -15,55 +15,87 @@ interface CashFlowForecastProps {
 
 export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans }) => {
     const { formatC } = useCurrency();
+    const [selectedTimeframe, setSelectedTimeframe] = React.useState<number | null>(null);
     const { projections, summary } = calculateCashFlowForecast(fund, loans, 12);
 
+    const toggleTimeframe = (days: number) => {
+        if (selectedTimeframe === days) {
+            setSelectedTimeframe(null);
+        } else {
+            setSelectedTimeframe(days);
+        }
+    };
+
     // Filter out today's initial state for the table
-    const futureProjections = projections.filter(p => p.expectedRepayments > 0);
+    let futureProjections = projections.filter(p => p.expectedRepayments > 0);
+
+    // Filter by timeframe if selected
+    if (selectedTimeframe) {
+        const today = new Date();
+        const cutoffDate = new Date(today.getTime() + selectedTimeframe * 24 * 60 * 60 * 1000);
+        futureProjections = futureProjections.filter(p => new Date(p.date) <= cutoffDate);
+    }
+
+    const timeframeCardClass = (days: number) => `
+        cursor-pointer transition-all border-2 
+        ${selectedTimeframe === days
+            ? 'border-indigo-500 bg-indigo-50/30 scale-[1.02] shadow-sm'
+            : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50/50'}
+    `;
 
     return (
         <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <button
+                    onClick={() => toggleTimeframe(30)}
+                    className={`text-left p-4 rounded-xl ${timeframeCardClass(30)}`}
+                >
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                         <Calendar className="w-4 h-4" />
-                        <span className="text-xs font-medium uppercase">Next 30 Days</span>
+                        <span className="text-xs font-medium uppercase tracking-wider">Next 30 Days</span>
                     </div>
                     <p className="text-2xl font-bold text-emerald-600">{formatC(summary.next30Days)}</p>
                     <p className="text-xs text-gray-500 mt-1">Expected Repayments</p>
-                </div>
+                </button>
 
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                <button
+                    onClick={() => toggleTimeframe(60)}
+                    className={`text-left p-4 rounded-xl ${timeframeCardClass(60)}`}
+                >
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                         <Calendar className="w-4 h-4" />
-                        <span className="text-xs font-medium uppercase">Next 90 Days</span>
+                        <span className="text-xs font-medium uppercase tracking-wider">Next 60 Days</span>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-600">{formatC(summary.next60Days)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Expected Repayments</p>
+                </button>
+
+                <button
+                    onClick={() => toggleTimeframe(90)}
+                    className={`text-left p-4 rounded-xl ${timeframeCardClass(90)}`}
+                >
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-xs font-medium uppercase tracking-wider">Next 90 Days</span>
                     </div>
                     <p className="text-2xl font-bold text-emerald-600">{formatC(summary.next90Days)}</p>
                     <p className="text-xs text-gray-500 mt-1">Expected Repayments</p>
-                </div>
+                </button>
 
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                         <TrendingUp className="w-4 h-4" />
-                        <span className="text-xs font-medium uppercase">Peak Available</span>
+                        <span className="text-xs font-medium uppercase tracking-wider">Peak Available</span>
                     </div>
                     <p className="text-2xl font-bold text-indigo-600">{formatC(summary.peakAvailable)}</p>
                     <p className="text-xs text-gray-500 mt-1">{new Date(summary.peakDate).toLocaleDateString()}</p>
                 </div>
 
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2 text-gray-500 mb-2">
-                        <TrendingDown className="w-4 h-4" />
-                        <span className="text-xs font-medium uppercase">Lowest Available</span>
-                    </div>
-                    <p className="text-2xl font-bold text-orange-600">{formatC(summary.lowestAvailable)}</p>
-                    <p className="text-xs text-gray-500 mt-1">{new Date(summary.lowestDate).toLocaleDateString()}</p>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                <div className="bg-white p-4 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                         <DollarSign className="w-4 h-4" />
-                        <span className="text-xs font-medium uppercase">Realized IM Yield</span>
+                        <span className="text-xs font-medium uppercase tracking-wider">Realized IM Yield</span>
                     </div>
                     <p className="text-2xl font-bold text-emerald-600">
                         {formatC(calculateRealizedImYield(fund, loans))}
@@ -73,13 +105,28 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({ fund, loans 
             </div>
 
             {/* Repayment Schedule Table */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                    <h3 className="text-lg font-semibold text-gray-900">Repayment Schedule</h3>
-                    <p className="text-sm text-gray-500 mt-1">Expected repayments from active loans</p>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">Repayment Schedule</h3>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                            {selectedTimeframe
+                                ? `Showing expected repayments for the next ${selectedTimeframe} days`
+                                : 'All expected repayments from active loans'}
+                        </p>
+                    </div>
+                    {selectedTimeframe && (
+                        <button
+                            onClick={() => setSelectedTimeframe(null)}
+                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 underline"
+                        >
+                            Clear Filter
+                        </button>
+                    )}
                 </div>
 
                 {futureProjections.length > 0 ? (
+                    // ... existing table logic ...
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">

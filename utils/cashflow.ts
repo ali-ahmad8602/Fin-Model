@@ -24,6 +24,7 @@ export interface CashFlowProjection {
 
 export interface CashFlowSummary {
     next30Days: number;
+    next60Days: number;
     next90Days: number;
     peakAvailable: number;
     lowestAvailable: number;
@@ -242,9 +243,11 @@ export function calculateCashFlowForecast(
 function calculateSummary(projections: CashFlowProjection[], initialAvailable: number): CashFlowSummary {
     const today = new Date();
     const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const in60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
     const in90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
 
     let next30Days = 0;
+    let next60Days = 0;
     let next90Days = 0;
     let peakAvailable = initialAvailable;
     let lowestAvailable = initialAvailable;
@@ -254,9 +257,12 @@ function calculateSummary(projections: CashFlowProjection[], initialAvailable: n
     projections.forEach(proj => {
         const projDate = new Date(proj.date);
 
-        // Sum repayments in next 30/90 days
+        // Sum repayments in next 30/60/90 days
         if (projDate <= in30Days) {
             next30Days += proj.expectedRepayments;
+        }
+        if (projDate <= in60Days) {
+            next60Days += proj.expectedRepayments;
         }
         if (projDate <= in90Days) {
             next90Days += proj.expectedRepayments;
@@ -275,6 +281,7 @@ function calculateSummary(projections: CashFlowProjection[], initialAvailable: n
 
     return {
         next30Days,
+        next60Days,
         next90Days,
         peakAvailable,
         lowestAvailable,
