@@ -176,14 +176,23 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, loans, readOnly = fals
                         <span className="text-sm font-medium uppercase tracking-wider">Projected Returns</span>
                     </div>
 
-                    <div>
-                        <div className="flex items-center gap-1">
-                            <p className="text-sm text-gray-500">Net Yield</p>
-                            <InfoIcon content={`Projected profit from Interest only, after expenses and losses.\n\nFormula: Interest Income - Total Expenses - NPL Losses\n\nProcessing fees are tracked separately and do not contribute to Yield.`} />
-                        </div>
-                        <div className="flex items-baseline gap-2">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <div className="flex items-center gap-1">
+                                <p className="text-sm text-gray-500">Net Yield</p>
+                                <InfoIcon content={`Projected profit from Interest only, after expenses and losses.\n\nFormula: Interest Income - Total Expenses - NPL Losses\n\nProcessing fees are tracked separately and do not contribute to Yield.`} />
+                            </div>
                             <p className={`text-lg font-semibold ${metrics.netYield >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                 {formatC(metrics.netYield)}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                                <p className="text-sm text-gray-500">Opp. Cost (Undep)</p>
+                                <InfoIcon content={`Undeployed Opportunity Cost: The potential interest income lost from funds that remained undeployed.\n\nCalculated using the average interest rate of your portfolio (${metrics.averageLoanRate.toFixed(2)}% PA).`} />
+                            </div>
+                            <p className="text-lg font-semibold text-red-600">
+                                {formatC(metrics.accumulatedUndeployedOpportunityCost)}
                             </p>
                         </div>
                     </div>

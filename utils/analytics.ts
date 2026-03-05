@@ -21,6 +21,8 @@ export interface FundMetrics {
     portfolioIRR: number; // Percentage - Realized IRR (actual outcomes)
     projectedPortfolioIRR: number; // Percentage - Projected IRR (deal economics)
     nplRatio: number; // Percentage
+    averageLoanRate: number; // New Metric: weighted average interest rate of deployed loans
+    accumulatedUndeployedOpportunityCost: number; // New Metric: opportunity cost using average loan rate
     globalCost: {
         annual: number;
         monthly: number;
@@ -36,6 +38,14 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     const fundLoans = loans.filter(l => l.fundId === fund.id);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Calculate Average Loan Rate (Weighted by Principal)
+    // Only include ACTIVE and CLOSED loans (exclude DEFAULTED for Opportunity Cost baseline)
+    const performingLoans = fundLoans.filter(l => l.status === 'ACTIVE' || l.status === 'CLOSED');
+    const totalPerformingPrincipal = performingLoans.reduce((sum, l) => sum + l.principal, 0);
+    const averageLoanRate = totalPerformingPrincipal > 0
+        ? performingLoans.reduce((sum, l) => sum + (l.interestRate * (l.principal / totalPerformingPrincipal)), 0)
+        : 0;
 
     // Calculate GROSS deployed (full principal for all active loans)
     const grossDeployed = fundLoans
@@ -119,6 +129,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     // ACCUMULATED UNDEPLOYED CAPITAL COST
     // ---------------------------------------------------------
     let accumulatedUndeployedCost = 0;
+    let accumulatedUndeployedOpportunityCost = 0;
     const inceptionDate = new Date(fund.createdAt || (fundLoans.length > 0 ? fundLoans[0].startDate : new Date()));
     inceptionDate.setHours(0, 0, 0, 0);
 
@@ -189,6 +200,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
 
         if (periodDays > 0 && runningAvail > 0) {
             accumulatedUndeployedCost += (runningAvail * (fund.costOfCapitalRate / 100) / 360) * periodDays;
+            accumulatedUndeployedOpportunityCost += (runningAvail * (averageLoanRate / 100) / 360) * periodDays;
         }
 
         runningAvail += event.change;
@@ -199,6 +211,7 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
     const finalDays = Math.max(0, Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
     if (finalDays > 0 && runningAvail > 0) {
         accumulatedUndeployedCost += (runningAvail * (fund.costOfCapitalRate / 100) / 360) * finalDays;
+        accumulatedUndeployedOpportunityCost += (runningAvail * (averageLoanRate / 100) / 360) * finalDays;
     }
 
     const nplLoans = fundLoans.filter(l => l.status === 'DEFAULTED');
@@ -353,11 +366,13 @@ export const calculateFundMetrics = (fund: Fund, loans: Loan[]): FundMetrics => 
         nav: fund.totalRaised + totalAllocatedCostOfCapital - nplPrincipalLoss,
         dailyAvailableCapitalCost: (availableCapital * (fund.costOfCapitalRate / 100)) / 360,
         accumulatedUndeployedCost,
+        accumulatedUndeployedOpportunityCost,
         netYield,
         aum: fund.totalRaised + totalAllocatedCostOfCapital + netYield, // User Formula: Raised + Deployed Cost + Net Yield
         nplRatio,
         portfolioIRR,
         projectedPortfolioIRR,
+        averageLoanRate,
         globalCost: {
             annual: annualGlobalCost,
             monthly: monthlyGlobalCost,
